@@ -27,6 +27,7 @@ type operationBuilder struct {
 	ReplyMessages      []messageEntry
 	ReplyChannelAddr   string
 	Security           []spec.Reference
+	Warnings           []string
 }
 
 type messageEntry struct {
@@ -71,6 +72,13 @@ func (p *Parser) parseHandlerFunc(funcDecl funcDeclInfo, file *ast.File, annotat
 		if err := p.applyHandlerAnnotation(builder, ann); err != nil {
 			return err
 		}
+	}
+
+	if len(builder.Warnings) > 0 {
+		if p.strict {
+			return fmt.Errorf("%s: %w", builder.Warnings[0], ErrUnknownType)
+		}
+		p.warnings = append(p.warnings, builder.Warnings...)
 	}
 
 	if builder.ChannelAddress == "" {
@@ -178,14 +186,16 @@ func parseChannelParam(b *operationBuilder, ann *annotation) error {
 		param.Description = ann.Args[3]
 	}
 
-	for _, arg := range ann.Args[4:] {
-		if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
-			inner := arg[5 : len(arg)-1]
-			param.Enum = strings.Split(inner, ",")
-		}
-		if strings.HasPrefix(arg, "example(") && strings.HasSuffix(arg, ")") {
-			inner := arg[8 : len(arg)-1]
-			param.Examples = strings.Split(inner, ",")
+	if len(ann.Args) > 4 {
+		for _, arg := range ann.Args[4:] {
+			if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
+				inner := arg[5 : len(arg)-1]
+				param.Enum = strings.Split(inner, ",")
+			}
+			if strings.HasPrefix(arg, "example(") && strings.HasSuffix(arg, ")") {
+				inner := arg[8 : len(arg)-1]
+				param.Examples = strings.Split(inner, ",")
+			}
 		}
 	}
 
@@ -201,23 +211,30 @@ func parseWsQueryParam(b *operationBuilder, ann *annotation) error {
 	typeName := ann.Args[1]
 	required := strings.ToLower(ann.Args[2]) == "true"
 
+	mapped, known := mapSimpleType(typeName)
+	if !known {
+		b.Warnings = append(b.Warnings, fmt.Sprintf("@WsBinding.Query %s: unknown type %q, defaulting to string", name, typeName))
+	}
+
 	prop := spec.NewInlineSchema(&spec.Schema{
-		Type: mapSimpleType(typeName),
+		Type: mapped,
 	})
 
 	if len(ann.Args) >= 4 {
 		prop.Schema.Description = ann.Args[3]
 	}
 
-	for _, arg := range ann.Args[4:] {
-		if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
-			inner := arg[5 : len(arg)-1]
-			vals := strings.Split(inner, ",")
-			enums := make([]any, len(vals))
-			for i, v := range vals {
-				enums[i] = v
+	if len(ann.Args) > 4 {
+		for _, arg := range ann.Args[4:] {
+			if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
+				inner := arg[5 : len(arg)-1]
+				vals := strings.Split(inner, ",")
+				enums := make([]any, len(vals))
+				for i, v := range vals {
+					enums[i] = v
+				}
+				prop.Schema.Enum = enums
 			}
-			prop.Schema.Enum = enums
 		}
 	}
 
@@ -236,8 +253,13 @@ func parseWsHeaderParam(b *operationBuilder, ann *annotation) error {
 	name := ann.Args[0]
 	typeName := ann.Args[1]
 
+	mapped, known := mapSimpleType(typeName)
+	if !known {
+		b.Warnings = append(b.Warnings, fmt.Sprintf("@WsBinding.Header %s: unknown type %q, defaulting to string", name, typeName))
+	}
+
 	prop := spec.NewInlineSchema(&spec.Schema{
-		Type: mapSimpleType(typeName),
+		Type: mapped,
 	})
 
 	if len(ann.Args) >= 4 {
@@ -423,17 +445,17 @@ func parseTags(raw string) []spec.Tag {
 	return tags
 }
 
-func mapSimpleType(t string) string {
+func mapSimpleType(t string) (string, bool) {
 	switch strings.ToLower(t) {
 	case "string":
-		return "string"
+		return "string", true
 	case "int", "integer", "int32", "int64":
-		return "integer"
+		return "integer", true
 	case "float", "float32", "float64", "number":
-		return "number"
+		return "number", true
 	case "bool", "boolean":
-		return "boolean"
+		return "boolean", true
 	default:
-		return "string"
+		return "string", false
 	}
 }

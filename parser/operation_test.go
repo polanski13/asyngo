@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -331,5 +332,245 @@ func MyHandler() {}
 	}
 	if pe.Function != "MyHandler" {
 		t.Errorf("ParseError.Function = %q, want MyHandler", pe.Function)
+	}
+}
+
+func TestParseChannelParamMinimalArgs(t *testing.T) {
+	tests := []struct {
+		name      string
+		handler   string
+		wantPanic bool
+		wantErr   bool
+	}{
+		{
+			name: "3 args no panic",
+			handler: `package main
+
+// @Channel /market/{pair}
+// @ChannelParam pair string true
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+		},
+		{
+			name: "4 args with description",
+			handler: `package main
+
+// @Channel /market/{pair}
+// @ChannelParam pair string true "Trading pair"
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+		},
+		{
+			name: "5 args with enum",
+			handler: `package main
+
+// @Channel /market/{pair}
+// @ChannelParam pair string true "Trading pair" enum(BTC-USD,ETH-USD)
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+		},
+		{
+			name:    "2 args error",
+			wantErr: true,
+			handler: `package main
+
+// @Channel /market/{pair}
+// @ChannelParam pair string
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := setupTestProject(t, map[string]string{
+				"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+				"handler.go": tt.handler,
+			})
+
+			p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+			_, err := p.Parse()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestMapSimpleTypeWarningNonStrict(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /data
+// @WsBinding.Query token foobar true "Auth token"
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	_, err := p.Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	warnings := p.Warnings()
+	if len(warnings) == 0 {
+		t.Fatal("expected warning for unknown type, got none")
+	}
+
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "foobar") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning mentioning %q, got %v", "foobar", warnings)
+	}
+}
+
+func TestMapSimpleTypeStrictError(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /data
+// @WsBinding.Query token badtype true "Auth token"
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"), WithStrict(true))
+	_, err := p.Parse()
+	if err == nil {
+		t.Fatal("expected error in strict mode for unknown type")
+	}
+	if !errors.Is(err, ErrUnknownType) {
+		t.Errorf("error = %v, want ErrUnknownType", err)
+	}
+}
+
+func TestMapSimpleTypeKnownTypes(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		known bool
+	}{
+		{"string", "string", true},
+		{"int", "integer", true},
+		{"integer", "integer", true},
+		{"int32", "integer", true},
+		{"int64", "integer", true},
+		{"float", "number", true},
+		{"float32", "number", true},
+		{"float64", "number", true},
+		{"number", "number", true},
+		{"bool", "boolean", true},
+		{"boolean", "boolean", true},
+		{"STRING", "string", true},
+		{"INT", "integer", true},
+		{"uuid", "string", false},
+		{"complex128", "string", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, known := mapSimpleType(tt.input)
+			if got != tt.want {
+				t.Errorf("mapSimpleType(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+			if known != tt.known {
+				t.Errorf("mapSimpleType(%q) known = %v, want %v", tt.input, known, tt.known)
+			}
+		})
+	}
+}
+
+func TestMapSimpleTypeHeaderWarning(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /data
+// @WsBinding.Header X-Custom weirdtype true "Custom header"
+// @Operation receive
+// @OperationID recv
+// @Message msg string
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	_, err := p.Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	warnings := p.Warnings()
+	if len(warnings) == 0 {
+		t.Fatal("expected warning for unknown header type")
+	}
+
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "weirdtype") && strings.Contains(w, "@WsBinding.Header") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning mentioning weirdtype and @WsBinding.Header, got %v", warnings)
 	}
 }

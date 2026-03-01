@@ -11,6 +11,7 @@ var (
 	ErrInvalidAnnotation    = errors.New("invalid annotation syntax")
 	ErrInvalidAction        = errors.New("invalid operation action")
 	ErrMissingChannel       = errors.New("missing @Channel annotation")
+	ErrUnknownType          = errors.New("unknown type")
 )
 
 type ParseError struct {

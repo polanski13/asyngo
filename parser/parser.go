@@ -21,6 +21,7 @@ type Parser struct {
 	strict          bool
 	operationIDs    map[string]bool
 	referencedTypes []typeReference
+	warnings        []string
 }
 
 type typeReference struct {
@@ -67,6 +68,10 @@ func New(opts ...Option) *Parser {
 	}
 	p.schemas = schema.NewResolver(p.packages)
 	return p
+}
+
+func (p *Parser) Warnings() []string {
+	return p.warnings
 }
 
 func (p *Parser) Parse() (*spec.AsyncAPI, error) {

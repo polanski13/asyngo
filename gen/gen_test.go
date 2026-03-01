@@ -205,8 +205,8 @@ func TestNewGen(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.SearchDir != "." {
-		t.Errorf("SearchDir = %q, want \".\"", cfg.SearchDir)
+	if len(cfg.SearchDirs) != 1 || cfg.SearchDirs[0] != "." {
+		t.Errorf("SearchDirs = %v, want [\".\"]", cfg.SearchDirs)
 	}
 	if cfg.MainAPIFile != "main.go" {
 		t.Errorf("MainAPIFile = %q, want \"main.go\"", cfg.MainAPIFile)
@@ -222,8 +222,8 @@ func TestDefaultConfig(t *testing.T) {
 func TestBuildInvalidSearchDir(t *testing.T) {
 	g := New()
 	cfg := &Config{
-		SearchDir: "/nonexistent/path/that/does/not/exist",
-		OutputDir: t.TempDir(),
+		SearchDirs: []string{"/nonexistent/path/that/does/not/exist"},
+		OutputDir:  t.TempDir(),
 	}
 
 	err := g.Build(cfg)
@@ -238,7 +238,7 @@ func TestBuildInvalidSearchDir(t *testing.T) {
 func TestBuildUnknownOutputType(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{
-		SearchDir:   "../testdata/basic",
+		SearchDirs:  []string{"../testdata/basic"},
 		MainAPIFile: "main.go",
 		OutputDir:   dir,
 		OutputTypes: []string{"xml", "json"},
@@ -266,7 +266,7 @@ func TestBuildWithTestdata(t *testing.T) {
 	g := New()
 
 	cfg := &Config{
-		SearchDir:   "../testdata/basic",
+		SearchDirs:  []string{"../testdata/basic"},
 		MainAPIFile: "main.go",
 		OutputDir:   dir,
 		OutputTypes: []string{"json", "yaml"},
@@ -316,7 +316,7 @@ func TestBuildWithGoOutput(t *testing.T) {
 	g := New()
 
 	cfg := &Config{
-		SearchDir:   "../testdata/basic",
+		SearchDirs:  []string{"../testdata/basic"},
 		MainAPIFile: "main.go",
 		OutputDir:   outDir,
 		OutputTypes: []string{"json", "go"},
@@ -346,7 +346,7 @@ func TestBuildMultipleSearchDirs(t *testing.T) {
 	g := New()
 
 	cfg := &Config{
-		SearchDir:   "../testdata/basic, ../testdata/basic",
+		SearchDirs:  []string{"../testdata/basic", "../testdata/basic"},
 		MainAPIFile: "main.go",
 		OutputDir:   dir,
 		OutputTypes: []string{"json"},
@@ -367,11 +367,11 @@ func TestBuildExcludes(t *testing.T) {
 	g := New()
 
 	cfg := &Config{
-		SearchDir:   "../testdata/basic",
+		SearchDirs:  []string{"../testdata/basic"},
 		MainAPIFile: "main.go",
 		OutputDir:   dir,
 		OutputTypes: []string{"json"},
-		Excludes:    "vendor,node_modules",
+		Excludes:    []string{"vendor", "node_modules"},
 	}
 
 	if err := g.Build(cfg); err != nil {

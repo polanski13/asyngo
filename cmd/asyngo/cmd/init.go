@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	searchDir   string
+	searchDirs  []string
 	mainAPIFile string
 	outputDir   string
 	outputTypes []string
-	excludes    string
+	excludes    []string
 	strict      bool
 )
 
@@ -21,7 +21,7 @@ var initCmd = &cobra.Command{
 	Short: "Generate AsyncAPI spec from Go source annotations",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := &gen.Config{
-			SearchDir:   searchDir,
+			SearchDirs:  searchDirs,
 			MainAPIFile: mainAPIFile,
 			OutputDir:   outputDir,
 			OutputTypes: outputTypes,
@@ -42,10 +42,10 @@ var initCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(initCmd)
 
-	initCmd.Flags().StringVarP(&searchDir, "dir", "d", ".", "directories to search (comma-separated)")
+	initCmd.Flags().StringSliceVarP(&searchDirs, "dir", "d", []string{"."}, "directories to search")
 	initCmd.Flags().StringVar(&mainAPIFile, "main", "main.go", "Go file with general API annotations")
 	initCmd.Flags().StringVarP(&outputDir, "output", "o", "./docs", "output directory")
 	initCmd.Flags().StringSliceVar(&outputTypes, "outputTypes", []string{"json", "yaml"}, "output types (json,yaml,go)")
-	initCmd.Flags().StringVar(&excludes, "exclude", "", "exclude directories (comma-separated)")
+	initCmd.Flags().StringSliceVar(&excludes, "exclude", nil, "exclude directories")
 	initCmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 }

@@ -1,17 +1,17 @@
 package gen
 
 type Config struct {
-	SearchDir   string
+	SearchDirs  []string
 	MainAPIFile string
 	OutputDir   string
 	OutputTypes []string
-	Excludes    string
+	Excludes    []string
 	Strict      bool
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		SearchDir:   ".",
+		SearchDirs:  []string{"."},
 		MainAPIFile: "main.go",
 		OutputDir:   "./docs",
 		OutputTypes: []string{"json", "yaml"},

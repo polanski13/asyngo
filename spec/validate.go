@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func (doc *AsyncAPI) Validate() []error {
+func (doc *AsyncAPI) ValidateBasic() []error {
 	var errs []error
 
 	if doc.AsyncAPI == "" {
@@ -17,6 +17,12 @@ func (doc *AsyncAPI) Validate() []error {
 	if doc.Info.Version == "" {
 		errs = append(errs, fmt.Errorf("info.version is required"))
 	}
+
+	return errs
+}
+
+func (doc *AsyncAPI) Validate() []error {
+	errs := doc.ValidateBasic()
 
 	for name, ch := range doc.Channels {
 		if ch.Address == "" {

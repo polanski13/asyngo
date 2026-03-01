@@ -28,7 +28,7 @@ func newAnnotationSet(comments *ast.CommentGroup) *annotationSet {
 	var current *annotation
 	for _, c := range comments.List {
 		text := strings.TrimPrefix(c.Text, "//")
-		text = strings.TrimPrefix(text, " ")
+		text = strings.TrimLeft(text, " ")
 
 		if strings.HasPrefix(text, "@") {
 			ann := parseAnnotationLine(text)

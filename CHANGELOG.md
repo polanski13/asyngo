@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0] - 2026-03-02
+
+### Changed
+
+- **BREAKING:** `Config.SearchDir string` → `Config.SearchDirs []string`, `Config.Excludes string` → `Config.Excludes []string` — comma-separated strings replaced with proper slices
+- **BREAKING:** CLI flags `--dir` and `--exclude` now accept multiple values via `StringSliceVar` instead of comma-separated strings
+- Extracted `wsBinding` struct from `operationBuilder` — WS binding fields (`Method`, `QueryProps`, `QueryRequired`, `HeaderProps`) are now grouped in a dedicated struct, lazily initialized only when WS annotations are present
+- `findMainFile` is now deterministic — `searchDirs` exact match has highest priority, basename match and fallback use sorted candidates instead of random map iteration
+- Annotation comment parsing uses `TrimLeft` instead of `TrimPrefix` for leading spaces — correctly handles `//  @Title` (multiple spaces after `//`)
+- `ValidateBasic()` (title, version, asyncapi version) now runs unconditionally; full `Validate()` (refs, channels, operations) only runs with `--strict`
+
+### Added
+
+- `spec.AsyncAPI.ValidateBasic()` method for lightweight required-field validation
+- Tests for `ValidateBasic`: valid doc, missing individual fields, empty doc, inclusion in full `Validate`
+
 ## [0.3.0] - 2026-03-01
 
 ### Fixed

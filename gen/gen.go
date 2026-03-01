@@ -28,32 +28,26 @@ func New() *Gen {
 }
 
 func (g *Gen) Build(cfg *Config) error {
-	searchDirs := strings.Split(cfg.SearchDir, ",")
-	for _, dir := range searchDirs {
-		dir = strings.TrimSpace(dir)
+	for _, dir := range cfg.SearchDirs {
 		if _, err := os.Stat(dir); err != nil {
 			return fmt.Errorf("search directory %q: %w", dir, err)
 		}
 	}
 
-	var excludes []string
-	if cfg.Excludes != "" {
-		excludes = strings.Split(cfg.Excludes, ",")
-		for i := range excludes {
-			excludes[i] = strings.TrimSpace(excludes[i])
-		}
-	}
-
 	p := parser.New(
-		parser.WithSearchDirs(searchDirs...),
+		parser.WithSearchDirs(cfg.SearchDirs...),
 		parser.WithMainFile(cfg.MainAPIFile),
-		parser.WithExcludes(excludes...),
+		parser.WithExcludes(cfg.Excludes...),
 		parser.WithStrict(cfg.Strict),
 	)
 
 	doc, err := p.Parse()
 	if err != nil {
 		return fmt.Errorf("parsing: %w", err)
+	}
+
+	if errs := doc.ValidateBasic(); len(errs) > 0 {
+		return fmt.Errorf("validation: %w", errs[0])
 	}
 
 	if cfg.Strict {

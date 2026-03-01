@@ -8,15 +8,19 @@ import (
 	"github.com/polanski13/asyngo/spec"
 )
 
+type wsBinding struct {
+	Method        string
+	QueryProps    map[string]*spec.SchemaRef
+	QueryRequired []string
+	HeaderProps   map[string]*spec.SchemaRef
+}
+
 type operationBuilder struct {
 	ChannelAddress     string
 	ChannelDescription string
 	ChannelParams      map[string]spec.Parameter
 	ChannelServers     []string
-	WsMethod           string
-	WsQueryProps       map[string]*spec.SchemaRef
-	WsQueryRequired    []string
-	WsHeaderProps      map[string]*spec.SchemaRef
+	WsBinding          *wsBinding
 	Action             spec.Action
 	OperationID        string
 	Summary            string
@@ -38,9 +42,17 @@ type messageEntry struct {
 func newOperationBuilder() *operationBuilder {
 	return &operationBuilder{
 		ChannelParams: make(map[string]spec.Parameter),
-		WsQueryProps:  make(map[string]*spec.SchemaRef),
-		WsHeaderProps: make(map[string]*spec.SchemaRef),
 	}
+}
+
+func (b *operationBuilder) ensureWsBinding() *wsBinding {
+	if b.WsBinding == nil {
+		b.WsBinding = &wsBinding{
+			QueryProps:  make(map[string]*spec.SchemaRef),
+			HeaderProps: make(map[string]*spec.SchemaRef),
+		}
+	}
+	return b.WsBinding
 }
 
 func (p *Parser) parseHandlers() error {
@@ -118,7 +130,7 @@ func (p *Parser) applyHandlerAnnotation(b *operationBuilder, ann *annotation) er
 		}
 	case "wsbinding.method":
 		if len(ann.Args) > 0 {
-			b.WsMethod = strings.ToUpper(ann.Args[0])
+			b.ensureWsBinding().Method = strings.ToUpper(ann.Args[0])
 		}
 	case "wsbinding.query":
 		return parseWsQueryParam(b, ann)
@@ -248,9 +260,10 @@ func parseWsQueryParam(b *operationBuilder, ann *annotation) error {
 		}
 	}
 
-	b.WsQueryProps[name] = prop
+	ws := b.ensureWsBinding()
+	ws.QueryProps[name] = prop
 	if required {
-		b.WsQueryRequired = append(b.WsQueryRequired, name)
+		ws.QueryRequired = append(ws.QueryRequired, name)
 	}
 
 	return nil
@@ -276,7 +289,7 @@ func parseWsHeaderParam(b *operationBuilder, ann *annotation) error {
 		prop.Schema.Description = ann.Args[3]
 	}
 
-	b.WsHeaderProps[name] = prop
+	b.ensureWsBinding().HeaderProps[name] = prop
 	return nil
 }
 
@@ -328,24 +341,24 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 		}
 	}
 
-	if len(b.WsQueryProps) > 0 || len(b.WsHeaderProps) > 0 || b.WsMethod != "" {
+	if ws := b.WsBinding; ws != nil {
 		channel.Bindings = &spec.ChannelBindings{
 			WS: &spec.WebSocketChannelBinding{
-				Method:         b.WsMethod,
+				Method:         ws.Method,
 				BindingVersion: "0.1.0",
 			},
 		}
-		if len(b.WsQueryProps) > 0 {
+		if len(ws.QueryProps) > 0 {
 			channel.Bindings.WS.Query = &spec.Schema{
 				Type:       "object",
-				Properties: b.WsQueryProps,
-				Required:   b.WsQueryRequired,
+				Properties: ws.QueryProps,
+				Required:   ws.QueryRequired,
 			}
 		}
-		if len(b.WsHeaderProps) > 0 {
+		if len(ws.HeaderProps) > 0 {
 			channel.Bindings.WS.Headers = &spec.Schema{
 				Type:       "object",
-				Properties: b.WsHeaderProps,
+				Properties: ws.HeaderProps,
 			}
 		}
 	}

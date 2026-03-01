@@ -4,6 +4,80 @@ import (
 	"testing"
 )
 
+func TestValidateBasicValid(t *testing.T) {
+	doc := NewAsyncAPI()
+	doc.Info.Title = "Test"
+	doc.Info.Version = "1.0.0"
+
+	errs := doc.ValidateBasic()
+	if len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}
+
+func TestValidateBasicMissingFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(*AsyncAPI)
+		wantErr string
+	}{
+		{
+			name:    "missing asyncapi version",
+			setup:   func(doc *AsyncAPI) { doc.AsyncAPI = "" },
+			wantErr: "asyncapi version is required",
+		},
+		{
+			name:    "missing title",
+			setup:   func(doc *AsyncAPI) { doc.Info.Title = "" },
+			wantErr: "info.title is required",
+		},
+		{
+			name:    "missing version",
+			setup:   func(doc *AsyncAPI) { doc.Info.Version = "" },
+			wantErr: "info.version is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := NewAsyncAPI()
+			doc.Info.Title = "Test"
+			doc.Info.Version = "1.0.0"
+			tt.setup(doc)
+
+			errs := doc.ValidateBasic()
+			if len(errs) == 0 {
+				t.Fatal("expected error")
+			}
+			found := false
+			for _, err := range errs {
+				if err.Error() == tt.wantErr {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("expected error %q, got %v", tt.wantErr, errs)
+			}
+		})
+	}
+}
+
+func TestValidateBasicEmpty(t *testing.T) {
+	doc := &AsyncAPI{}
+	errs := doc.ValidateBasic()
+	if len(errs) != 3 {
+		t.Errorf("expected 3 errors, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestValidateIncludesBasic(t *testing.T) {
+	doc := &AsyncAPI{}
+	errs := doc.Validate()
+	if len(errs) < 3 {
+		t.Errorf("Validate should include basic errors, got %d: %v", len(errs), errs)
+	}
+}
+
 func TestValidateValid(t *testing.T) {
 	doc := NewAsyncAPI()
 	doc.Info.Title = "Test"

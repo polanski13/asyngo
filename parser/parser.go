@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/polanski13/asyngo/schema"
@@ -116,12 +117,6 @@ func (p *Parser) buildSchemas() error {
 }
 
 func (p *Parser) findMainFile() string {
-	for path := range p.packages.Files() {
-		if filepath.Base(path) == p.mainFile {
-			return path
-		}
-	}
-
 	for _, dir := range p.searchDirs {
 		candidate := filepath.Join(strings.TrimSpace(dir), p.mainFile)
 		if _, ok := p.packages.Files()[candidate]; ok {
@@ -129,8 +124,24 @@ func (p *Parser) findMainFile() string {
 		}
 	}
 
+	var candidates []string
 	for path := range p.packages.Files() {
-		return path
+		if filepath.Base(path) == p.mainFile {
+			candidates = append(candidates, path)
+		}
+	}
+	if len(candidates) > 0 {
+		sort.Strings(candidates)
+		return candidates[0]
+	}
+
+	var allPaths []string
+	for path := range p.packages.Files() {
+		allPaths = append(allPaths, path)
+	}
+	if len(allPaths) > 0 {
+		sort.Strings(allPaths)
+		return allPaths[0]
 	}
 
 	return p.mainFile

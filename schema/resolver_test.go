@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -54,10 +55,11 @@ func (tl *testPackageLookup) FindTypeSpec(typeName string, file *ast.File) (*Typ
 	if td, ok := tl.types[typeName]; ok {
 		return td, nil
 	}
-	return nil, ErrUnresolvedType
+	return nil, fmt.Errorf("%w: %s", ErrUnresolvedType, typeName)
 }
 
 func TestResolvePrimitives(t *testing.T) {
+	t.Parallel()
 	src := `package test
 type Dummy struct{}
 `
@@ -80,7 +82,9 @@ type Dummy struct{}
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ref, err := r.ResolveExpr(tt.expr, file, components)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)

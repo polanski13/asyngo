@@ -36,11 +36,6 @@ var specialTypeToSchema = map[string]schemaType{
 	"multipart.FileHeader": {Type: "string", Format: "binary"},
 }
 
-func isPrimitive(typeName string) bool {
-	_, ok := goTypeToSchema[typeName]
-	return ok
-}
-
 func mapType(typeName string) (typ, format string, ok bool) {
 	if st, found := goTypeToSchema[typeName]; found {
 		return st.Type, st.Format, true

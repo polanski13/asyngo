@@ -136,22 +136,7 @@ func (p *Parser) findMainFile() string {
 	return p.mainFile
 }
 
-type funcDeclInfo struct {
-	decl *ast.FuncDecl
-}
-
-func asFuncDecl(decl ast.Decl) (funcDeclInfo, bool) {
+func asFuncDecl(decl ast.Decl) (*ast.FuncDecl, bool) {
 	fd, ok := decl.(*ast.FuncDecl)
-	if !ok {
-		return funcDeclInfo{}, false
-	}
-	return funcDeclInfo{decl: fd}, true
-}
-
-func (f funcDeclInfo) name() string {
-	return f.decl.Name.Name
-}
-
-func (f funcDeclInfo) Doc() *ast.CommentGroup {
-	return f.decl.Doc
+	return fd, ok
 }

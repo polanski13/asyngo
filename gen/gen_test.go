@@ -238,19 +238,26 @@ func TestBuildInvalidSearchDir(t *testing.T) {
 func TestBuildUnknownOutputType(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &Config{
-		SearchDir:   ".",
-		MainAPIFile: "nonexistent_main.go",
+		SearchDir:   "../testdata/basic",
+		MainAPIFile: "main.go",
 		OutputDir:   dir,
-		OutputTypes: []string{"xml"},
+		OutputTypes: []string{"xml", "json"},
 	}
 
 	g := New()
 	err := g.Build(cfg)
-	if err == nil {
-		return
+	if err != nil {
+		t.Fatalf("Build: %v", err)
 	}
-	if strings.Contains(err.Error(), "xml") {
-		t.Error("unknown output type should be silently skipped, not cause an error about xml")
+
+	jsonPath := filepath.Join(dir, "asyncapi.json")
+	if _, err := os.Stat(jsonPath); err != nil {
+		t.Error("json output should still be created")
+	}
+
+	xmlPath := filepath.Join(dir, "asyncapi.xml")
+	if _, err := os.Stat(xmlPath); !os.IsNotExist(err) {
+		t.Error("xml output should not be created for unknown type")
 	}
 }
 

@@ -47,25 +47,25 @@ func (p *Parser) parseHandlers() error {
 	for path, f := range p.packages.Files() {
 		for _, decl := range f.Decls {
 			funcDecl, ok := asFuncDecl(decl)
-			if !ok || funcDecl.Doc() == nil {
+			if !ok || funcDecl.Doc == nil {
 				continue
 			}
 
-			annotations := newAnnotationSet(funcDecl.Doc())
+			annotations := newAnnotationSet(funcDecl.Doc)
 			if !annotations.Has("Channel") && !annotations.Has("Operation") {
 				continue
 			}
 
 			if err := p.parseHandlerFunc(funcDecl, f, annotations); err != nil {
-				pos := p.packages.FileSet().Position(funcDecl.decl.Pos())
-				return newParseError(path, pos.Line, funcDecl.name(), err)
+				pos := p.packages.FileSet().Position(funcDecl.Pos())
+				return newParseError(path, pos.Line, funcDecl.Name.Name, err)
 			}
 		}
 	}
 	return nil
 }
 
-func (p *Parser) parseHandlerFunc(funcDecl funcDeclInfo, file *ast.File, annotations *annotationSet) error {
+func (p *Parser) parseHandlerFunc(funcDecl *ast.FuncDecl, file *ast.File, annotations *annotationSet) error {
 	builder := newOperationBuilder()
 
 	for _, ann := range annotations.All() {
@@ -171,6 +171,8 @@ func (p *Parser) applyHandlerAnnotation(b *operationBuilder, ann *annotation) er
 		if len(ann.Args) > 0 {
 			b.Security = append(b.Security, spec.NewRef("#/components/securitySchemes/"+ann.Args[0]))
 		}
+	default:
+		b.Warnings = append(b.Warnings, fmt.Sprintf("unknown handler annotation @%s", ann.Name))
 	}
 	return nil
 }
@@ -180,7 +182,15 @@ func parseChannelParam(b *operationBuilder, ann *annotation) error {
 		return fmt.Errorf("@ChannelParam requires name, type, and required: %w", ErrInvalidAnnotation)
 	}
 	name := ann.Args[0]
-	param := spec.Parameter{}
+	typeName := ann.Args[1]
+
+	if _, known := mapSimpleType(typeName); !known {
+		b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: unknown type %q, defaulting to string", name, typeName))
+	}
+
+	param := spec.Parameter{
+		Location: "$message.payload#/" + name,
+	}
 
 	if len(ann.Args) >= 4 {
 		param.Description = ann.Args[3]
@@ -349,7 +359,9 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 }
 
 func (p *Parser) registerMessages(channelKey string, file *ast.File, b *operationBuilder) error {
-	allMessages := append(b.Messages, b.ReplyMessages...)
+	allMessages := make([]messageEntry, 0, len(b.Messages)+len(b.ReplyMessages))
+	allMessages = append(allMessages, b.Messages...)
+	allMessages = append(allMessages, b.ReplyMessages...)
 	for _, msg := range allMessages {
 		if _, exists := p.spec.Components.Messages[msg.Name]; exists {
 			continue

@@ -15,11 +15,11 @@ func (p *Parser) parseGeneralAPI() error {
 
 	for _, decl := range mainFile.Decls {
 		funcDecl, ok := asFuncDecl(decl)
-		if !ok || funcDecl.Doc() == nil {
+		if !ok || funcDecl.Doc == nil {
 			continue
 		}
 
-		annotations := newAnnotationSet(funcDecl.Doc())
+		annotations := newAnnotationSet(funcDecl.Doc)
 		if !annotations.Has("AsyncAPI") && !annotations.Has("Title") {
 			continue
 		}
@@ -110,27 +110,13 @@ func (p *Parser) parseServerAnnotation(ann *annotation) error {
 	return nil
 }
 
+var knownProtocols = []string{"wss://", "ws://", "https://", "http://", "mqtt://", "amqp://", "kafka://"}
+
 func parseHostProtocol(hostWithProtocol string) (host, protocol string) {
-	if strings.HasPrefix(hostWithProtocol, "wss://") {
-		return strings.TrimPrefix(hostWithProtocol, "wss://"), "wss"
-	}
-	if strings.HasPrefix(hostWithProtocol, "ws://") {
-		return strings.TrimPrefix(hostWithProtocol, "ws://"), "ws"
-	}
-	if strings.HasPrefix(hostWithProtocol, "https://") {
-		return strings.TrimPrefix(hostWithProtocol, "https://"), "https"
-	}
-	if strings.HasPrefix(hostWithProtocol, "http://") {
-		return strings.TrimPrefix(hostWithProtocol, "http://"), "http"
-	}
-	if strings.HasPrefix(hostWithProtocol, "mqtt://") {
-		return strings.TrimPrefix(hostWithProtocol, "mqtt://"), "mqtt"
-	}
-	if strings.HasPrefix(hostWithProtocol, "amqp://") {
-		return strings.TrimPrefix(hostWithProtocol, "amqp://"), "amqp"
-	}
-	if strings.HasPrefix(hostWithProtocol, "kafka://") {
-		return strings.TrimPrefix(hostWithProtocol, "kafka://"), "kafka"
+	for _, prefix := range knownProtocols {
+		if after, ok := strings.CutPrefix(hostWithProtocol, prefix); ok {
+			return after, strings.TrimSuffix(prefix, "://")
+		}
 	}
 	return hostWithProtocol, "ws"
 }

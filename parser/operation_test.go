@@ -497,6 +497,7 @@ func Handler() {}
 }
 
 func TestMapSimpleTypeKnownTypes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  string
@@ -520,7 +521,9 @@ func TestMapSimpleTypeKnownTypes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got, known := mapSimpleType(tt.input)
 			if got != tt.want {
 				t.Errorf("mapSimpleType(%q) = %q, want %q", tt.input, got, tt.want)

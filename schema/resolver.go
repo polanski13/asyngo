@@ -133,17 +133,6 @@ func (r *Resolver) resolveArray(
 	file *ast.File,
 	components map[string]*spec.Schema,
 ) (*spec.SchemaRef, error) {
-	if arr.Len == nil {
-		items, err := r.ResolveExpr(arr.Elt, file, components)
-		if err != nil {
-			return nil, err
-		}
-		return spec.NewInlineSchema(&spec.Schema{
-			Type:  "array",
-			Items: items,
-		}), nil
-	}
-
 	items, err := r.ResolveExpr(arr.Elt, file, components)
 	if err != nil {
 		return nil, err

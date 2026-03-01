@@ -50,7 +50,11 @@ func (pd *packagesDefinitions) walkDir(dir string, excludes []string) error {
 				return filepath.SkipDir
 			}
 			for _, exc := range excludes {
-				if matched, _ := filepath.Match(exc, base); matched {
+				matched, err := filepath.Match(exc, base)
+				if err != nil {
+					return fmt.Errorf("invalid exclude pattern %q: %w", exc, err)
+				}
+				if matched {
 					return filepath.SkipDir
 				}
 			}
@@ -106,7 +110,6 @@ func (pd *packagesDefinitions) CatalogTypes() {
 					PkgPath:  pkgName,
 				}
 				pd.types[pkgName+"."+typeSpec.Name.Name] = td
-				pd.types[typeSpec.Name.Name] = td
 			}
 		}
 	}
@@ -132,10 +135,6 @@ func (pd *packagesDefinitions) FindTypeSpec(typeName string, file *ast.File) (*s
 			return td, nil
 		}
 
-		if td, ok := pd.types[name]; ok {
-			return td, nil
-		}
-
 		return nil, fmt.Errorf("%w: %s (package %s)", schema.ErrUnresolvedType, typeName, realPkg)
 	}
 
@@ -146,8 +145,10 @@ func (pd *packagesDefinitions) FindTypeSpec(typeName string, file *ast.File) (*s
 		}
 	}
 
-	if td, ok := pd.types[typeName]; ok {
-		return td, nil
+	for _, td := range pd.types {
+		if td.TypeSpec.Name.Name == typeName {
+			return td, nil
+		}
 	}
 
 	return nil, fmt.Errorf("%w: %s", schema.ErrUnresolvedType, typeName)

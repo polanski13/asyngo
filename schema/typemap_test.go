@@ -2,23 +2,8 @@ package schema
 
 import "testing"
 
-func TestIsPrimitive(t *testing.T) {
-	primitives := []string{"bool", "string", "int", "int8", "int16", "int32", "int64", "uint", "float32", "float64", "byte", "rune"}
-	for _, p := range primitives {
-		if !isPrimitive(p) {
-			t.Errorf("IsPrimitive(%q) = false, want true", p)
-		}
-	}
-
-	nonPrimitives := []string{"MyStruct", "time.Time", "any", "interface{}"}
-	for _, p := range nonPrimitives {
-		if isPrimitive(p) {
-			t.Errorf("IsPrimitive(%q) = true, want false", p)
-		}
-	}
-}
-
 func TestMapType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input      string
 		wantType   string
@@ -38,7 +23,9 @@ func TestMapType(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			typ, format, ok := mapType(tt.input)
 			if ok != tt.wantOK {
 				t.Fatalf("MapType(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)

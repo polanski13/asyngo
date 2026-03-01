@@ -6,6 +6,7 @@ import (
 )
 
 func TestParseAnnotationLine(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		wantName string
@@ -69,7 +70,9 @@ func TestParseAnnotationLine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			ann := parseAnnotationLine(tt.input)
 			if ann == nil {
 				t.Fatal("parseAnnotationLine returned nil")
@@ -159,6 +162,7 @@ func TestAnnotationSetContinuation(t *testing.T) {
 }
 
 func TestTokenizeArgs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  []string
@@ -170,10 +174,18 @@ func TestTokenizeArgs(t *testing.T) {
 		{`a "multi word" b`, []string{"a", "multi word", "b"}},
 		{"enum(a,b,c)", []string{"enum(a,b,c)"}},
 		{`name string true "description" enum(x,y)`, []string{"name", "string", "true", "description", "enum(x,y)"}},
+		{`"hello`, []string{"hello"}},
+		{`enum(a,b`, []string{"enum(a,b"}},
+		{`""`, []string{""}},
+		{`"enum(x)"`, []string{"enum(x)"}},
+		{"  a  b  ", []string{"a", "b"}},
+		{"\ta\tb", []string{"a", "b"}},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got := tokenizeArgs(tt.input)
 			if len(got) != len(tt.want) {
 				t.Fatalf("tokenizeArgs(%q) = %v (len %d), want %v (len %d)", tt.input, got, len(got), tt.want, len(tt.want))
@@ -213,6 +225,7 @@ func TestAnnotationSetEmpty(t *testing.T) {
 }
 
 func TestAddressToKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  string
@@ -225,7 +238,9 @@ func TestAddressToKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got := addressToKey(tt.input)
 			if got != tt.want {
 				t.Errorf("addressToKey(%q) = %q, want %q", tt.input, got, tt.want)

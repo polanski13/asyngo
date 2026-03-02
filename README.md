@@ -39,7 +39,28 @@ func main() {}
 func HandleMarket(conn *websocket.Conn) {}
 ```
 
-3. Define payload types as Go structs:
+3. Use `@MessageOneOf` for polymorphic messages with multiple payload types:
+
+```go
+// @Channel /events/{symbol}
+// @Operation receive
+// @OperationID receiveEvents
+// @MessageOneOf eventUpdate TickerPayload|OrderBookPayload|TradePayload discriminator(eventType)
+func HandleEvents() {}
+```
+
+This generates a `oneOf` payload with a `discriminator` field:
+
+```yaml
+payload:
+  oneOf:
+    - $ref: '#/components/schemas/TickerPayload'
+    - $ref: '#/components/schemas/OrderBookPayload'
+    - $ref: '#/components/schemas/TradePayload'
+  discriminator: eventType
+```
+
+4. Define payload types as Go structs:
 
 ```go
 type TickerPayload struct {
@@ -50,7 +71,7 @@ type TickerPayload struct {
 }
 ```
 
-4. Generate:
+5. Generate:
 
 ```bash
 asyngo init --dir . --output ./docs
@@ -124,6 +145,7 @@ err := asyngo.Generate(&asyngo.Config{
 | `@Description` | Operation description |
 | `@Tags` | Comma-separated tags |
 | `@Message` | Message definition: `name PayloadType` |
+| `@MessageOneOf` | Polymorphic message: `name Type1\|Type2 [discriminator(prop)]` |
 | `@Reply` | Mark operation as having a reply |
 | `@ReplyMessage` | Reply message: `name PayloadType` |
 | `@ReplyChannel` | Reply channel address |

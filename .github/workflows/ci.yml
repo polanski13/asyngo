@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: go vet ./...
+
+      - run: go test -race -count=1 ./...
+
+      - run: go build ./...
+
+  validate-spec:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: go build -o asyngo ./cmd/asyngo
+
+      - run: ./asyngo init --dir ./testdata/basic --main main.go -o /tmp/basic-spec --outputTypes json
+
+      - run: ./asyngo init --dir ./testdata/oneof --main main.go -o /tmp/oneof-spec --outputTypes json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install -g @asyncapi/cli
+
+      - run: asyncapi validate /tmp/basic-spec/asyncapi.json
+
+      - run: asyncapi validate /tmp/oneof-spec/asyncapi.json

@@ -303,6 +303,99 @@ func TestParseMultiPackageTestdata(t *testing.T) {
 	t.Logf("Multi-package spec (%d bytes)", len(data))
 }
 
+func TestParseOneOfTestdata(t *testing.T) {
+	testdataDir, err := filepath.Abs("../testdata/oneof")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p := New(
+		WithSearchDirs(testdataDir),
+		WithMainFile("main.go"),
+	)
+
+	doc, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+
+	if doc.AsyncAPI != "3.0.0" {
+		t.Errorf("AsyncAPI = %q", doc.AsyncAPI)
+	}
+	if doc.Info.Title != "Market Events API" {
+		t.Errorf("Title = %q", doc.Info.Title)
+	}
+	if doc.Info.Version != "1.0.0" {
+		t.Errorf("Version = %q", doc.Info.Version)
+	}
+
+	ch, ok := doc.Channels["eventsSymbol"]
+	if !ok {
+		t.Fatalf("channel 'eventsSymbol' not found, got keys: %v", channelKeys(doc))
+	}
+	if ch.Address != "/events/{symbol}" {
+		t.Errorf("channel address = %q", ch.Address)
+	}
+	if _, ok := ch.Messages["eventUpdate"]; !ok {
+		t.Error("channel missing 'eventUpdate' message")
+	}
+
+	op, ok := doc.Operations["receiveEvents"]
+	if !ok {
+		t.Fatal("operation 'receiveEvents' not found")
+	}
+	if op.Action != spec.ActionReceive {
+		t.Errorf("action = %q", op.Action)
+	}
+	if len(op.Messages) != 1 {
+		t.Errorf("operation messages count = %d, want 1", len(op.Messages))
+	}
+
+	msg, ok := doc.Components.Messages["eventUpdate"]
+	if !ok {
+		t.Fatal("message 'eventUpdate' not found")
+	}
+	if msg.Payload == nil || msg.Payload.Schema == nil {
+		t.Fatal("eventUpdate payload schema is nil")
+	}
+	if len(msg.Payload.Schema.OneOf) != 3 {
+		t.Fatalf("oneOf count = %d, want 3", len(msg.Payload.Schema.OneOf))
+	}
+	if msg.Payload.Schema.Discriminator != "eventType" {
+		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
+	}
+
+	expectedRefs := []string{
+		"#/components/schemas/TickerPayload",
+		"#/components/schemas/OrderBookPayload",
+		"#/components/schemas/TradePayload",
+	}
+	for i, want := range expectedRefs {
+		if msg.Payload.Schema.OneOf[i].Ref != want {
+			t.Errorf("oneOf[%d] = %q, want %q", i, msg.Payload.Schema.OneOf[i].Ref, want)
+		}
+	}
+
+	expectedSchemas := []string{"TickerPayload", "OrderBookPayload", "TradePayload"}
+	for _, name := range expectedSchemas {
+		if _, ok := doc.Components.Schemas[name]; !ok {
+			t.Errorf("schema %q not found in components", name)
+		}
+	}
+
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		t.Fatalf("JSON marshal error: %v", err)
+	}
+
+	outDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outDir, "asyncapi.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("OneOf spec (%d bytes)", len(data))
+}
+
 func channelKeys(doc *spec.AsyncAPI) []string {
 	keys := make([]string, 0, len(doc.Channels))
 	for k := range doc.Channels {

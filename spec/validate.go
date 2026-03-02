@@ -56,6 +56,15 @@ func (doc *AsyncAPI) Validate() []error {
 					errs = append(errs, fmt.Errorf("message %q payload: %w", name, err))
 				}
 			}
+			if msg.Payload != nil && msg.Payload.Schema != nil {
+				for i, ref := range msg.Payload.Schema.OneOf {
+					if ref.Ref != "" {
+						if err := doc.validateRef(ref.Ref, "schemas"); err != nil {
+							errs = append(errs, fmt.Errorf("message %q payload.oneOf[%d]: %w", name, i, err))
+						}
+					}
+				}
+			}
 		}
 	}
 

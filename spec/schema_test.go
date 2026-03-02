@@ -94,6 +94,73 @@ func TestReferenceHelpers(t *testing.T) {
 	}
 }
 
+func TestSchemaRefMarshalJSON_OneOfWithDiscriminator(t *testing.T) {
+	sr := SchemaRef{
+		Schema: &Schema{
+			OneOf: []*SchemaRef{
+				NewSchemaRef(ComponentSchemaRef("TickerPayload")),
+				NewSchemaRef(ComponentSchemaRef("OrderBookPayload")),
+			},
+			Discriminator: "eventType",
+		},
+	}
+	data, err := json.Marshal(sr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	oneOf, ok := m["oneOf"].([]any)
+	if !ok {
+		t.Fatal("oneOf is not an array")
+	}
+	if len(oneOf) != 2 {
+		t.Errorf("oneOf length = %d, want 2", len(oneOf))
+	}
+	ref0 := oneOf[0].(map[string]any)["$ref"]
+	if ref0 != "#/components/schemas/TickerPayload" {
+		t.Errorf("oneOf[0].$ref = %v", ref0)
+	}
+	ref1 := oneOf[1].(map[string]any)["$ref"]
+	if ref1 != "#/components/schemas/OrderBookPayload" {
+		t.Errorf("oneOf[1].$ref = %v", ref1)
+	}
+	if m["discriminator"] != "eventType" {
+		t.Errorf("discriminator = %v, want eventType", m["discriminator"])
+	}
+}
+
+func TestSchemaRefMarshalJSON_OneOfWithoutDiscriminator(t *testing.T) {
+	sr := SchemaRef{
+		Schema: &Schema{
+			OneOf: []*SchemaRef{
+				NewSchemaRef(ComponentSchemaRef("A")),
+				NewSchemaRef(ComponentSchemaRef("B")),
+			},
+		},
+	}
+	data, err := json.Marshal(sr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m["discriminator"]; ok {
+		t.Error("discriminator should be omitted when empty")
+	}
+	oneOf, ok := m["oneOf"].([]any)
+	if !ok {
+		t.Fatal("oneOf is not an array")
+	}
+	if len(oneOf) != 2 {
+		t.Errorf("oneOf length = %d, want 2", len(oneOf))
+	}
+}
+
 func TestNewAsyncAPI(t *testing.T) {
 	doc := NewAsyncAPI()
 	if doc.AsyncAPI != "3.0.0" {

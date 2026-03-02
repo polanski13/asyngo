@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0] - 2026-03-02
+
+### Added
+
+- `oneOf`/`discriminator` support for polymorphic messages via `@MessageOneOf` annotation
+- Syntax: `@MessageOneOf <name> <Type1>|<Type2>[|...] [discriminator(<propertyName>)]`
+- `Discriminator` field in `spec.Schema` (string, per AsyncAPI 3.0.0 spec)
+- Validation of `$ref` entries inside `payload.oneOf`
+- `testdata/oneof/` example project with polymorphic event stream
+- GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+- GitLab CI configuration (`.gitlab-ci.yml`)
+
+### Fixed
+
+- CLI version bumped from `0.2.0` to `0.5.0`
+
 ## [0.4.0] - 2026-03-02
 
 ### Changed

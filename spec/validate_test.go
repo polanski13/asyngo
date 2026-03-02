@@ -192,6 +192,55 @@ func TestValidateEmptyChannelAddress(t *testing.T) {
 	}
 }
 
+func TestValidateOneOfBrokenRef(t *testing.T) {
+	doc := NewAsyncAPI()
+	doc.Info.Title = "Test"
+	doc.Info.Version = "1.0.0"
+	doc.Components.Messages["event"] = &Message{
+		Name: "event",
+		Payload: NewInlineSchema(&Schema{
+			OneOf: []*SchemaRef{
+				NewSchemaRef(ComponentSchemaRef("Missing")),
+				NewSchemaRef(ComponentSchemaRef("AlsoMissing")),
+			},
+			Discriminator: "eventType",
+		}),
+	}
+
+	errs := doc.Validate()
+	if len(errs) < 2 {
+		t.Fatalf("expected at least 2 errors for broken oneOf refs, got %d: %v", len(errs), errs)
+	}
+	for _, err := range errs {
+		if err == nil {
+			t.Error("nil error in list")
+		}
+	}
+}
+
+func TestValidateOneOfValidRef(t *testing.T) {
+	doc := NewAsyncAPI()
+	doc.Info.Title = "Test"
+	doc.Info.Version = "1.0.0"
+	doc.Components.Schemas["TickerPayload"] = &Schema{Type: "object"}
+	doc.Components.Schemas["OrderBookPayload"] = &Schema{Type: "object"}
+	doc.Components.Messages["event"] = &Message{
+		Name: "event",
+		Payload: NewInlineSchema(&Schema{
+			OneOf: []*SchemaRef{
+				NewSchemaRef(ComponentSchemaRef("TickerPayload")),
+				NewSchemaRef(ComponentSchemaRef("OrderBookPayload")),
+			},
+			Discriminator: "eventType",
+		}),
+	}
+
+	errs := doc.Validate()
+	if len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}
+
 func TestValidateOperationMissingAction(t *testing.T) {
 	doc := NewAsyncAPI()
 	doc.Info.Title = "Test"

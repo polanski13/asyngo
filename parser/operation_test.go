@@ -535,6 +535,197 @@ func TestMapSimpleTypeKnownTypes(t *testing.T) {
 	}
 }
 
+func TestParseMessageOneOf(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"models.go": `package main
+
+type TickerPayload struct {
+	EventType string  ` + "`json:\"eventType\"`" + `
+	Price     float64 ` + "`json:\"price\"`" + `
+}
+
+type OrderBookPayload struct {
+	EventType string ` + "`json:\"eventType\"`" + `
+	Depth     int    ` + "`json:\"depth\"`" + `
+}
+`,
+		"handler.go": `package main
+
+// @Channel /events
+// @Operation receive
+// @OperationID recvEvents
+// @MessageOneOf eventUpdate TickerPayload|OrderBookPayload discriminator(eventType)
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	doc, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	msg, ok := doc.Components.Messages["eventUpdate"]
+	if !ok {
+		t.Fatal("message 'eventUpdate' not found")
+	}
+	if msg.Payload == nil || msg.Payload.Schema == nil {
+		t.Fatal("payload schema is nil")
+	}
+	if len(msg.Payload.Schema.OneOf) != 2 {
+		t.Fatalf("oneOf count = %d, want 2", len(msg.Payload.Schema.OneOf))
+	}
+	if msg.Payload.Schema.OneOf[0].Ref != "#/components/schemas/TickerPayload" {
+		t.Errorf("oneOf[0] = %q", msg.Payload.Schema.OneOf[0].Ref)
+	}
+	if msg.Payload.Schema.OneOf[1].Ref != "#/components/schemas/OrderBookPayload" {
+		t.Errorf("oneOf[1] = %q", msg.Payload.Schema.OneOf[1].Ref)
+	}
+	if msg.Payload.Schema.Discriminator != "eventType" {
+		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
+	}
+
+	ch := doc.Channels["events"]
+	if _, ok := ch.Messages["eventUpdate"]; !ok {
+		t.Error("channel missing eventUpdate message")
+	}
+
+	op := doc.Operations["recvEvents"]
+	if len(op.Messages) != 1 {
+		t.Fatalf("operation messages count = %d, want 1", len(op.Messages))
+	}
+}
+
+func TestParseMessageOneOfNoDiscriminator(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"models.go": `package main
+
+type TypeA struct {
+	Name string ` + "`json:\"name\"`" + `
+}
+
+type TypeB struct {
+	Value int ` + "`json:\"value\"`" + `
+}
+`,
+		"handler.go": `package main
+
+// @Channel /events
+// @Operation receive
+// @OperationID recvEvents
+// @MessageOneOf mixed TypeA|TypeB
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	doc, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	msg := doc.Components.Messages["mixed"]
+	if msg.Payload.Schema.Discriminator != "" {
+		t.Errorf("discriminator = %q, want empty", msg.Payload.Schema.Discriminator)
+	}
+	if len(msg.Payload.Schema.OneOf) != 2 {
+		t.Errorf("oneOf count = %d, want 2", len(msg.Payload.Schema.OneOf))
+	}
+}
+
+func TestParseMessageOneOfMissingName(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /events
+// @Operation receive
+// @OperationID recvEvents
+// @MessageOneOf
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	_, err := p.Parse()
+	if err == nil {
+		t.Fatal("expected error for @MessageOneOf without args")
+	}
+	if !errors.Is(err, ErrInvalidAnnotation) {
+		t.Errorf("error = %v, want ErrInvalidAnnotation", err)
+	}
+}
+
+func TestParseMixedMessageAndOneOf(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.0.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"models.go": `package main
+
+type TypeA struct {
+	Kind string ` + "`json:\"kind\"`" + `
+}
+
+type TypeB struct {
+	Kind  string ` + "`json:\"kind\"`" + `
+	Value int    ` + "`json:\"value\"`" + `
+}
+`,
+		"handler.go": `package main
+
+// @Channel /mixed
+// @Operation receive
+// @OperationID recvMixed
+// @Message plainMsg string
+// @MessageOneOf polyMsg TypeA|TypeB discriminator(kind)
+func Handler() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	doc, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	if _, ok := doc.Components.Messages["plainMsg"]; !ok {
+		t.Error("missing plainMsg")
+	}
+	if _, ok := doc.Components.Messages["polyMsg"]; !ok {
+		t.Error("missing polyMsg")
+	}
+
+	op := doc.Operations["recvMixed"]
+	if len(op.Messages) != 2 {
+		t.Errorf("operation messages count = %d, want 2", len(op.Messages))
+	}
+}
+
 func TestMapSimpleTypeHeaderWarning(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main

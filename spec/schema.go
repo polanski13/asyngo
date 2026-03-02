@@ -22,6 +22,7 @@ type Schema struct {
 	UniqueItems          bool                  `json:"uniqueItems,omitempty" yaml:"uniqueItems,omitempty"`
 	AllOf                []*SchemaRef          `json:"allOf,omitempty" yaml:"allOf,omitempty"`
 	OneOf                []*SchemaRef          `json:"oneOf,omitempty" yaml:"oneOf,omitempty"`
+	Discriminator        string                `json:"discriminator,omitempty" yaml:"discriminator,omitempty"`
 	AnyOf                []*SchemaRef          `json:"anyOf,omitempty" yaml:"anyOf,omitempty"`
 	Not                  *SchemaRef            `json:"not,omitempty" yaml:"not,omitempty"`
 	Nullable             bool                  `json:"nullable,omitempty" yaml:"nullable,omitempty"`

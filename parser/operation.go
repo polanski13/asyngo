@@ -27,6 +27,7 @@ type operationBuilder struct {
 	Description        string
 	Tags               []spec.Tag
 	Messages           []messageEntry
+	OneOfMessages      []oneOfMessageEntry
 	HasReply           bool
 	ReplyMessages      []messageEntry
 	ReplyChannelAddr   string
@@ -37,6 +38,12 @@ type operationBuilder struct {
 type messageEntry struct {
 	Name        string
 	PayloadType string
+}
+
+type oneOfMessageEntry struct {
+	Name          string
+	Discriminator string
+	PayloadTypes  []string
 }
 
 func newOperationBuilder() *operationBuilder {
@@ -167,6 +174,20 @@ func (p *Parser) applyHandlerAnnotation(b *operationBuilder, ann *annotation) er
 			Name:        ann.Args[0],
 			PayloadType: ann.Args[1],
 		})
+	case "messageoneof":
+		if len(ann.Args) < 2 {
+			return fmt.Errorf("@MessageOneOf requires name and payload types (pipe-separated): %w", ErrInvalidAnnotation)
+		}
+		entry := oneOfMessageEntry{
+			Name:         ann.Args[0],
+			PayloadTypes: strings.Split(ann.Args[1], "|"),
+		}
+		for _, arg := range ann.Args[2:] {
+			if strings.HasPrefix(arg, "discriminator(") && strings.HasSuffix(arg, ")") {
+				entry.Discriminator = arg[len("discriminator(") : len(arg)-1]
+			}
+		}
+		b.OneOfMessages = append(b.OneOfMessages, entry)
 	case "reply":
 		b.HasReply = true
 	case "replymessage":
@@ -311,6 +332,14 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 				Ref: spec.ComponentMessageRef(msg.Name),
 			}
 		}
+		for _, msg := range b.OneOfMessages {
+			if existing.Messages == nil {
+				existing.Messages = make(map[string]spec.MessageRef)
+			}
+			existing.Messages[msg.Name] = spec.MessageRef{
+				Ref: spec.ComponentMessageRef(msg.Name),
+			}
+		}
 		p.spec.Channels[key] = existing
 		return nil
 	}
@@ -336,6 +365,11 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 		}
 	}
 	for _, msg := range b.ReplyMessages {
+		channel.Messages[msg.Name] = spec.MessageRef{
+			Ref: spec.ComponentMessageRef(msg.Name),
+		}
+	}
+	for _, msg := range b.OneOfMessages {
 		channel.Messages[msg.Name] = spec.MessageRef{
 			Ref: spec.ComponentMessageRef(msg.Name),
 		}
@@ -392,6 +426,30 @@ func (p *Parser) registerMessages(channelKey string, file *ast.File, b *operatio
 			file:     file,
 		})
 	}
+	for _, msg := range b.OneOfMessages {
+		if _, exists := p.spec.Components.Messages[msg.Name]; exists {
+			continue
+		}
+		var refs []*spec.SchemaRef
+		for _, pt := range msg.PayloadTypes {
+			schemaName := pt
+			if idx := strings.LastIndex(schemaName, "."); idx >= 0 {
+				schemaName = schemaName[idx+1:]
+			}
+			refs = append(refs, spec.NewSchemaRef(spec.ComponentSchemaRef(schemaName)))
+			p.referencedTypes = append(p.referencedTypes, typeReference{
+				typeName: pt,
+				file:     file,
+			})
+		}
+		p.spec.Components.Messages[msg.Name] = &spec.Message{
+			Name: msg.Name,
+			Payload: spec.NewInlineSchema(&spec.Schema{
+				OneOf:         refs,
+				Discriminator: msg.Discriminator,
+			}),
+		}
+	}
 	return nil
 }
 
@@ -411,6 +469,9 @@ func (p *Parser) registerOperation(channelKey string, b *operationBuilder) error
 	}
 
 	for _, msg := range b.Messages {
+		op.Messages = append(op.Messages, spec.NewRef(spec.ChannelMessageRef(channelKey, msg.Name)))
+	}
+	for _, msg := range b.OneOfMessages {
 		op.Messages = append(op.Messages, spec.NewRef(spec.ChannelMessageRef(channelKey, msg.Name)))
 	}
 

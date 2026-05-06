@@ -10,8 +10,9 @@ type Components struct {
 
 func NewComponents() *Components {
 	return &Components{
-		Schemas:  make(map[string]*Schema),
-		Messages: make(map[string]*Message),
+		Schemas:         make(map[string]*Schema),
+		Messages:        make(map[string]*Message),
+		SecuritySchemes: make(map[string]SecurityScheme),
 	}
 }
 

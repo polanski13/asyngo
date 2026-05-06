@@ -135,16 +135,7 @@ func (p *Parser) findMainFile() string {
 		return candidates[0]
 	}
 
-	var allPaths []string
-	for path := range p.packages.Files() {
-		allPaths = append(allPaths, path)
-	}
-	if len(allPaths) > 0 {
-		sort.Strings(allPaths)
-		return allPaths[0]
-	}
-
-	return p.mainFile
+	return ""
 }
 
 func asFuncDecl(decl ast.Decl) (*ast.FuncDecl, bool) {

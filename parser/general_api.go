@@ -70,6 +70,8 @@ func (p *Parser) applyGeneralAnnotation(ann *annotation) error {
 		p.spec.ID = ann.Raw
 	case "server":
 		return p.parseServerAnnotation(ann)
+	case "securityscheme":
+		return p.parseSecuritySchemeAnnotation(ann)
 	}
 	return nil
 }
@@ -139,6 +141,64 @@ func (p *Parser) parseServerAnnotation(ann *annotation) error {
 		Description: description,
 	}
 
+	return nil
+}
+
+func (p *Parser) parseSecuritySchemeAnnotation(ann *annotation) error {
+	if len(ann.Args) < 2 {
+		return fmt.Errorf("@SecurityScheme requires at least name and type: got %q: %w", ann.Raw, ErrInvalidAnnotation)
+	}
+	name := ann.Args[0]
+	schemeType := ann.Args[1]
+
+	scheme := spec.SecurityScheme{Type: schemeType}
+	rest := ann.Args[2:]
+
+	switch schemeType {
+	case "http":
+		if len(rest) >= 1 {
+			scheme.Scheme = rest[0]
+		}
+		if len(rest) >= 2 {
+			scheme.BearerFormat = rest[1]
+		}
+		if len(rest) >= 3 {
+			scheme.Description = strings.Join(rest[2:], " ")
+		}
+	case "apiKey":
+		if len(rest) >= 1 {
+			scheme.In = rest[0]
+		}
+		if len(rest) >= 2 {
+			scheme.Description = strings.Join(rest[1:], " ")
+		}
+	case "httpApiKey":
+		if len(rest) >= 1 {
+			scheme.In = rest[0]
+		}
+		if len(rest) >= 2 {
+			scheme.Name = rest[1]
+		}
+		if len(rest) >= 3 {
+			scheme.Description = strings.Join(rest[2:], " ")
+		}
+	case "openIdConnect":
+		if len(rest) >= 1 {
+			scheme.OpenIDConnectURL = rest[0]
+		}
+		if len(rest) >= 2 {
+			scheme.Description = strings.Join(rest[1:], " ")
+		}
+	default:
+		if len(rest) > 0 {
+			scheme.Description = strings.Join(rest, " ")
+		}
+	}
+
+	if p.spec.Components.SecuritySchemes == nil {
+		p.spec.Components.SecuritySchemes = make(map[string]spec.SecurityScheme)
+	}
+	p.spec.Components.SecuritySchemes[name] = scheme
 	return nil
 }
 

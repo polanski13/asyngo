@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"strings"
@@ -19,10 +20,11 @@ type PackageLookup interface {
 }
 
 type Resolver struct {
-	packages   PackageLookup
-	parsed     map[string]*spec.Schema
-	inProgress map[string]bool
-	fp         *fieldProcessor
+	packages       PackageLookup
+	parsed         map[string]*spec.Schema
+	inProgress     map[string]bool
+	typeParamStack []map[string]bool
+	fp             *fieldProcessor
 }
 
 func NewResolver(packages PackageLookup) *Resolver {
@@ -33,6 +35,15 @@ func NewResolver(packages PackageLookup) *Resolver {
 	}
 	r.fp = newFieldProcessor(r)
 	return r
+}
+
+func (r *Resolver) isTypeParam(name string) bool {
+	for _, frame := range r.typeParamStack {
+		if frame[name] {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Resolver) ResolveExpr(
@@ -54,7 +65,11 @@ func (r *Resolver) ResolveExpr(
 	case *ast.StructType:
 		return r.resolveAnonymousStruct(t, file, components)
 	case *ast.InterfaceType:
-		return spec.NewInlineSchema(&spec.Schema{Type: "object"}), nil
+		return spec.NewInlineSchema(&spec.Schema{}), nil
+	case *ast.IndexExpr:
+		return r.ResolveExpr(t.X, file, components)
+	case *ast.IndexListExpr:
+		return r.ResolveExpr(t.X, file, components)
 	default:
 		return nil, fmt.Errorf("%w: %T", ErrUnsupportedType, expr)
 	}
@@ -93,8 +108,8 @@ func (r *Resolver) resolveIdent(
 ) (*spec.SchemaRef, error) {
 	name := ident.Name
 
-	if name == "any" {
-		return spec.NewInlineSchema(&spec.Schema{Type: "object"}), nil
+	if name == "any" || r.isTypeParam(name) {
+		return spec.NewInlineSchema(&spec.Schema{}), nil
 	}
 
 	if typ, format, ok := mapType(name); ok {
@@ -149,6 +164,9 @@ func (r *Resolver) resolveArray(
 	file *ast.File,
 	components map[string]*spec.Schema,
 ) (*spec.SchemaRef, error) {
+	if ident, ok := arr.Elt.(*ast.Ident); ok && ident.Name == "byte" {
+		return spec.NewInlineSchema(&spec.Schema{Type: "string", Format: "byte"}), nil
+	}
 	items, err := r.ResolveExpr(arr.Elt, file, components)
 	if err != nil {
 		return nil, err
@@ -232,6 +250,17 @@ func (r *Resolver) resolveTypeDef(
 		r.inProgress[name] = true
 		defer delete(r.inProgress, name)
 
+		if td.TypeSpec.TypeParams != nil {
+			frame := make(map[string]bool)
+			for _, param := range td.TypeSpec.TypeParams.List {
+				for _, n := range param.Names {
+					frame[n.Name] = true
+				}
+			}
+			r.typeParamStack = append(r.typeParamStack, frame)
+			defer func() { r.typeParamStack = r.typeParamStack[:len(r.typeParamStack)-1] }()
+		}
+
 		schema, err := r.resolveStructFields(t, td.File, components)
 		if err != nil {
 			return nil, fmt.Errorf("resolving struct %s: %w", name, err)
@@ -258,7 +287,7 @@ func (r *Resolver) resolveTypeDef(
 		return r.resolveMap(t, td.File, components)
 
 	case *ast.InterfaceType:
-		return spec.NewInlineSchema(&spec.Schema{Type: "object"}), nil
+		return spec.NewInlineSchema(&spec.Schema{}), nil
 
 	default:
 		return nil, fmt.Errorf("%w: %s has underlying type %T", ErrUnsupportedType, name, td.TypeSpec.Type)
@@ -331,6 +360,9 @@ func (r *Resolver) handleEmbeddedField(
 
 	resolved, err := r.ResolveExpr(embeddedExpr, file, components)
 	if err != nil {
+		if errors.Is(err, ErrUnresolvedType) {
+			return nil
+		}
 		return err
 	}
 

@@ -39,14 +39,18 @@ func (fp *fieldProcessor) processField(
 		return "", nil, false, false, err
 	}
 
+	if hasJSONOption(tag.Get("json"), "string") {
+		coerceToString(prop)
+	}
+
 	applyTags(prop, tag)
 
 	required = isRequired(tag)
 
 	if field.Doc != nil {
 		desc := extractDescription(field.Doc)
-		if desc != "" && prop.Schema != nil {
-			prop.Schema.Description = desc
+		if desc != "" {
+			applyDescription(prop, desc)
 		}
 	}
 
@@ -116,11 +120,80 @@ func isRequired(tag reflect.StructTag) bool {
 	return false
 }
 
-func applyTags(prop *spec.SchemaRef, tag reflect.StructTag) {
-	if prop.Ref != "" || prop.Schema == nil {
+func hasJSONOption(jsonTag, option string) bool {
+	parts := strings.Split(jsonTag, ",")
+	if len(parts) <= 1 {
+		return false
+	}
+	for _, p := range parts[1:] {
+		if p == option {
+			return true
+		}
+	}
+	return false
+}
+
+func coerceToString(prop *spec.SchemaRef) {
+	if prop == nil {
 		return
 	}
+	if s := tagTargetSchema(prop); s != nil {
+		s.Type = "string"
+		s.Format = ""
+		return
+	}
+	if prop.Schema != nil {
+		prop.Schema.Type = "string"
+		prop.Schema.Format = ""
+	}
+}
+
+func applyDescription(prop *spec.SchemaRef, desc string) {
+	if prop == nil {
+		return
+	}
+	if s := tagTargetSchema(prop); s != nil {
+		s.Description = desc
+		return
+	}
+	if prop.Ref != "" {
+		wrapped := &spec.SchemaRef{
+			Schema: &spec.Schema{
+				AllOf:       []*spec.SchemaRef{spec.NewSchemaRef(prop.Ref)},
+				Description: desc,
+			},
+		}
+		*prop = *wrapped
+		return
+	}
+	if prop.Schema != nil {
+		prop.Schema.Description = desc
+	}
+}
+
+func tagTargetSchema(prop *spec.SchemaRef) *spec.Schema {
+	if prop == nil || prop.Ref != "" || prop.Schema == nil {
+		return nil
+	}
 	s := prop.Schema
+	if len(s.OneOf) == 2 && s.Type == "" {
+		last := s.OneOf[1]
+		if last != nil && last.Schema != nil && last.Schema.Type == "null" {
+			inner := s.OneOf[0]
+			if inner != nil && inner.Schema != nil {
+				return inner.Schema
+			}
+			return nil
+		}
+	}
+	return s
+}
+
+func applyTags(prop *spec.SchemaRef, tag reflect.StructTag) {
+	s := tagTargetSchema(prop)
+	if s == nil {
+		return
+	}
 
 	if v := tag.Get("example"); v != "" {
 		s.Example = parseTagValue(s.Type, v)

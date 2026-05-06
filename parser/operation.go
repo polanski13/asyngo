@@ -145,7 +145,11 @@ func (p *Parser) applyHandlerAnnotation(b *operationBuilder, ann *annotation) er
 		}
 	case "wsbinding.method":
 		if len(ann.Args) > 0 {
-			b.ensureWsBinding().Method = strings.ToUpper(ann.Args[0])
+			method := strings.ToUpper(ann.Args[0])
+			if method != "GET" && method != "POST" {
+				b.Warnings = append(b.Warnings, fmt.Sprintf("@WsBinding.Method %q: AsyncAPI WebSocket binding only allows GET or POST", ann.Args[0]))
+			}
+			b.ensureWsBinding().Method = method
 		}
 	case "wsbinding.query":
 		return parseWsQueryParam(b, ann)
@@ -244,19 +248,38 @@ func parseChannelParam(b *operationBuilder, ann *annotation) error {
 
 	if len(ann.Args) > 4 {
 		for _, arg := range ann.Args[4:] {
-			if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
-				inner := arg[5 : len(arg)-1]
-				param.Enum = strings.Split(inner, ",")
+			if strings.HasPrefix(arg, "enum(") {
+				if !strings.HasSuffix(arg, ")") {
+					b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: unclosed enum(...) clause %q", name, arg))
+					continue
+				}
+				param.Enum = splitParenList(arg[5 : len(arg)-1])
 			}
-			if strings.HasPrefix(arg, "example(") && strings.HasSuffix(arg, ")") {
-				inner := arg[8 : len(arg)-1]
-				param.Examples = strings.Split(inner, ",")
+			if strings.HasPrefix(arg, "example(") {
+				if !strings.HasSuffix(arg, ")") {
+					b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: unclosed example(...) clause %q", name, arg))
+					continue
+				}
+				param.Examples = splitParenList(arg[8 : len(arg)-1])
 			}
 		}
 	}
 
 	b.ChannelParams[name] = param
 	return nil
+}
+
+func splitParenList(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if len(p) >= 2 && p[0] == '"' && p[len(p)-1] == '"' {
+			p = p[1 : len(p)-1]
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 func parseWsQueryParam(b *operationBuilder, ann *annotation) error {
@@ -282,15 +305,19 @@ func parseWsQueryParam(b *operationBuilder, ann *annotation) error {
 
 	if len(ann.Args) > 4 {
 		for _, arg := range ann.Args[4:] {
-			if strings.HasPrefix(arg, "enum(") && strings.HasSuffix(arg, ")") {
-				inner := arg[5 : len(arg)-1]
-				vals := strings.Split(inner, ",")
-				enums := make([]any, len(vals))
-				for i, v := range vals {
-					enums[i] = v
-				}
-				prop.Schema.Enum = enums
+			if !strings.HasPrefix(arg, "enum(") {
+				continue
 			}
+			if !strings.HasSuffix(arg, ")") {
+				b.Warnings = append(b.Warnings, fmt.Sprintf("@WsBinding.Query %s: unclosed enum(...) clause %q", name, arg))
+				continue
+			}
+			vals := splitParenList(arg[5 : len(arg)-1])
+			enums := make([]any, len(vals))
+			for i, v := range vals {
+				enums[i] = v
+			}
+			prop.Schema.Enum = enums
 		}
 	}
 
@@ -330,32 +357,10 @@ func parseWsHeaderParam(b *operationBuilder, ann *annotation) error {
 func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 	if existing, ok := p.spec.Channels[key]; ok {
 		if existing.Address != b.ChannelAddress {
-			return fmt.Errorf("%w: key %q maps to both %q and %q", ErrChannelKeyCollision, key, existing.Address, b.ChannelAddress)
+			return fmt.Errorf("%w: key %q maps to both %q and %q (channel keys are derived by stripping {} from address segments — `/users/{id}` and `/users/id` collide)", ErrChannelKeyCollision, key, existing.Address, b.ChannelAddress)
 		}
-		for _, msg := range b.Messages {
-			if existing.Messages == nil {
-				existing.Messages = make(map[string]spec.MessageRef)
-			}
-			existing.Messages[msg.Name] = spec.MessageRef{
-				Ref: spec.ComponentMessageRef(msg.Name),
-			}
-		}
-		for _, msg := range b.ReplyMessages {
-			if existing.Messages == nil {
-				existing.Messages = make(map[string]spec.MessageRef)
-			}
-			existing.Messages[msg.Name] = spec.MessageRef{
-				Ref: spec.ComponentMessageRef(msg.Name),
-			}
-		}
-		for _, msg := range b.OneOfMessages {
-			if existing.Messages == nil {
-				existing.Messages = make(map[string]spec.MessageRef)
-			}
-			existing.Messages[msg.Name] = spec.MessageRef{
-				Ref: spec.ComponentMessageRef(msg.Name),
-			}
-		}
+		p.mergeChannelMessages(&existing, b)
+		p.mergeChannelMetadata(key, &existing, b)
 		p.spec.Channels[key] = existing
 		return nil
 	}
@@ -375,42 +380,10 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 		channel.Servers = append(channel.Servers, spec.NewRef(spec.ServerRef(serverName)))
 	}
 
-	for _, msg := range b.Messages {
-		channel.Messages[msg.Name] = spec.MessageRef{
-			Ref: spec.ComponentMessageRef(msg.Name),
-		}
-	}
-	for _, msg := range b.ReplyMessages {
-		channel.Messages[msg.Name] = spec.MessageRef{
-			Ref: spec.ComponentMessageRef(msg.Name),
-		}
-	}
-	for _, msg := range b.OneOfMessages {
-		channel.Messages[msg.Name] = spec.MessageRef{
-			Ref: spec.ComponentMessageRef(msg.Name),
-		}
-	}
+	p.mergeChannelMessages(&channel, b)
 
 	if ws := b.WsBinding; ws != nil {
-		channel.Bindings = &spec.ChannelBindings{
-			WS: &spec.WebSocketChannelBinding{
-				Method:         ws.Method,
-				BindingVersion: "0.1.0",
-			},
-		}
-		if len(ws.QueryProps) > 0 {
-			channel.Bindings.WS.Query = &spec.Schema{
-				Type:       "object",
-				Properties: ws.QueryProps,
-				Required:   ws.QueryRequired,
-			}
-		}
-		if len(ws.HeaderProps) > 0 {
-			channel.Bindings.WS.Headers = &spec.Schema{
-				Type:       "object",
-				Properties: ws.HeaderProps,
-			}
-		}
+		channel.Bindings = buildChannelBindings(ws)
 	}
 
 	if len(channel.Parameters) == 0 {
@@ -421,21 +394,94 @@ func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 	return nil
 }
 
+func (p *Parser) mergeChannelMessages(ch *spec.Channel, b *operationBuilder) {
+	if ch.Messages == nil {
+		ch.Messages = make(map[string]spec.MessageRef)
+	}
+	for _, msg := range b.Messages {
+		ch.Messages[msg.Name] = spec.MessageRef{Ref: spec.ComponentMessageRef(msg.Name)}
+	}
+	for _, msg := range b.ReplyMessages {
+		ch.Messages[msg.Name] = spec.MessageRef{Ref: spec.ComponentMessageRef(msg.Name)}
+	}
+	for _, msg := range b.OneOfMessages {
+		ch.Messages[msg.Name] = spec.MessageRef{Ref: spec.ComponentMessageRef(msg.Name)}
+	}
+}
+
+func (p *Parser) mergeChannelMetadata(key string, ch *spec.Channel, b *operationBuilder) {
+	for name, param := range b.ChannelParams {
+		if ch.Parameters == nil {
+			ch.Parameters = make(map[string]spec.Parameter)
+		}
+		if _, exists := ch.Parameters[name]; !exists {
+			ch.Parameters[name] = param
+		}
+	}
+	if len(b.ChannelServers) > 0 {
+		seen := make(map[string]bool, len(ch.Servers))
+		for _, ref := range ch.Servers {
+			seen[ref.Ref] = true
+		}
+		for _, serverName := range b.ChannelServers {
+			ref := spec.ServerRef(serverName)
+			if !seen[ref] {
+				ch.Servers = append(ch.Servers, spec.NewRef(ref))
+				seen[ref] = true
+			}
+		}
+	}
+	if b.WsBinding != nil {
+		if ch.Bindings == nil {
+			ch.Bindings = buildChannelBindings(b.WsBinding)
+		} else {
+			p.warnings = append(p.warnings, fmt.Sprintf("channel %q: @WsBinding from a later handler ignored — first handler's binding wins", key))
+		}
+	}
+}
+
+func buildChannelBindings(ws *wsBinding) *spec.ChannelBindings {
+	bindings := &spec.ChannelBindings{
+		WS: &spec.WebSocketChannelBinding{
+			Method:         ws.Method,
+			BindingVersion: "0.1.0",
+		},
+	}
+	if len(ws.QueryProps) > 0 {
+		bindings.WS.Query = &spec.Schema{
+			Type:       "object",
+			Properties: ws.QueryProps,
+			Required:   ws.QueryRequired,
+		}
+	}
+	if len(ws.HeaderProps) > 0 {
+		bindings.WS.Headers = &spec.Schema{
+			Type:       "object",
+			Properties: ws.HeaderProps,
+		}
+	}
+	return bindings
+}
+
 func (p *Parser) registerMessages(channelKey string, file *ast.File, b *operationBuilder) error {
 	allMessages := make([]messageEntry, 0, len(b.Messages)+len(b.ReplyMessages))
 	allMessages = append(allMessages, b.Messages...)
 	allMessages = append(allMessages, b.ReplyMessages...)
 	for _, msg := range allMessages {
-		if _, exists := p.spec.Components.Messages[msg.Name]; exists {
-			continue
-		}
 		schemaName := msg.PayloadType
 		if idx := strings.LastIndex(schemaName, "."); idx >= 0 {
 			schemaName = schemaName[idx+1:]
 		}
+		newPayloadRef := spec.ComponentSchemaRef(schemaName)
+		if existing, exists := p.spec.Components.Messages[msg.Name]; exists {
+			if existing.Payload != nil && existing.Payload.Ref != newPayloadRef {
+				return fmt.Errorf("%w: %q maps to both %s and %s", ErrDuplicateMessage, msg.Name, existing.Payload.Ref, newPayloadRef)
+			}
+			continue
+		}
 		p.spec.Components.Messages[msg.Name] = &spec.Message{
 			Name:    msg.Name,
-			Payload: spec.NewSchemaRef(spec.ComponentSchemaRef(schemaName)),
+			Payload: spec.NewSchemaRef(newPayloadRef),
 		}
 		p.referencedTypes = append(p.referencedTypes, typeReference{
 			typeName: msg.PayloadType,

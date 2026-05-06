@@ -78,7 +78,7 @@ type Dummy struct{}
 		{"int64", &ast.Ident{Name: "int64"}, "integer", "int64"},
 		{"float64", &ast.Ident{Name: "float64"}, "number", "double"},
 		{"bool", &ast.Ident{Name: "bool"}, "boolean", ""},
-		{"any", &ast.Ident{Name: "any"}, "object", ""},
+		{"any", &ast.Ident{Name: "any"}, "", ""},
 	}
 
 	for _, tt := range tests {
@@ -530,8 +530,8 @@ type Dummy struct{}
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ref.Schema == nil || ref.Schema.Type != "object" {
-		t.Error("interface should resolve to object")
+	if ref.Schema == nil || ref.Schema.Type != "" {
+		t.Errorf("interface should resolve to empty schema (accept anything), got %+v", ref.Schema)
 	}
 }
 
@@ -902,8 +902,8 @@ type Handler interface {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ref.Schema == nil || ref.Schema.Type != "object" {
-		t.Error("interface typedef should resolve to object")
+	if ref.Schema == nil || ref.Schema.Type != "" {
+		t.Errorf("interface typedef should resolve to empty schema, got %+v", ref.Schema)
 	}
 }
 
@@ -1048,6 +1048,130 @@ type Outer struct {
 			t.Errorf("expected first oneOf to be $ref Inner, got %+v", inner)
 		}
 	})
+}
+
+func TestApplyTagsThroughNullableWrapper(t *testing.T) {
+	src := `package test
+type Req struct {
+	Name *string ` + "`json:\"name\" validate:\"min=2,max=50\" example:\"alice\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Req", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["Req"].Properties["name"]
+	if prop == nil || prop.Schema == nil || len(prop.Schema.OneOf) != 2 {
+		t.Fatalf("expected oneOf wrapper, got %+v", prop)
+	}
+	wrapper := prop.Schema
+	if wrapper.Minimum != nil || wrapper.Maximum != nil {
+		t.Errorf("wrapper must not carry numeric min/max, got Minimum=%v Maximum=%v", wrapper.Minimum, wrapper.Maximum)
+	}
+	inner := wrapper.OneOf[0].Schema
+	if inner == nil {
+		t.Fatal("inner schema is nil")
+	}
+	if inner.MinLength == nil || *inner.MinLength != 2 {
+		t.Errorf("inner.MinLength = %v, want 2", inner.MinLength)
+	}
+	if inner.MaxLength == nil || *inner.MaxLength != 50 {
+		t.Errorf("inner.MaxLength = %v, want 50", inner.MaxLength)
+	}
+	if inner.Example != "alice" {
+		t.Errorf("inner.Example = %v, want alice", inner.Example)
+	}
+}
+
+func TestDescriptionOnRefField(t *testing.T) {
+	src := `package test
+type Customer struct {
+	ID string ` + "`json:\"id\"`" + `
+}
+type Order struct {
+	// The customer who placed this order
+	Customer Customer ` + "`json:\"customer\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Order", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["Order"].Properties["customer"]
+	if prop == nil {
+		t.Fatal("customer prop missing")
+	}
+	if prop.Schema == nil {
+		t.Fatalf("expected description wrapper, got pure $ref: %+v", prop)
+	}
+	if prop.Schema.Description != "The customer who placed this order" {
+		t.Errorf("description = %q", prop.Schema.Description)
+	}
+	if len(prop.Schema.AllOf) != 1 || prop.Schema.AllOf[0].Ref != "#/components/schemas/Customer" {
+		t.Errorf("expected allOf:[$ref Customer], got %+v", prop.Schema.AllOf)
+	}
+}
+
+func TestResolveByteSlice(t *testing.T) {
+	src := `package test
+type File struct {
+	Content []byte ` + "`json:\"content\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("File", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["File"].Properties["content"]
+	if prop == nil || prop.Schema == nil {
+		t.Fatalf("content prop missing or has no inline schema: %+v", prop)
+	}
+	if prop.Schema.Type != "string" || prop.Schema.Format != "byte" {
+		t.Errorf("[]byte = {%q, %q}, want {string, byte}", prop.Schema.Type, prop.Schema.Format)
+	}
+}
+
+func TestResolveGenericInstantiation(t *testing.T) {
+	src := `package test
+type Box[T any] struct {
+	Value T ` + "`json:\"value\"`" + `
+}
+type Holder struct {
+	IntBox    Box[int]    ` + "`json:\"intBox\"`" + `
+	StringBox Box[string] ` + "`json:\"stringBox\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Holder", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	holder := components["Holder"]
+	if holder == nil {
+		t.Fatal("Holder schema missing")
+	}
+	if holder.Properties["intBox"].Ref != "#/components/schemas/Box" {
+		t.Errorf("intBox ref = %q, want $ref Box", holder.Properties["intBox"].Ref)
+	}
 }
 
 func TestResolveDoublePointerNotDoubleWrapped(t *testing.T) {

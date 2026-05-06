@@ -13,6 +13,7 @@ var (
 	ErrMissingChannel       = errors.New("missing @Channel annotation")
 	ErrUnknownType          = errors.New("unknown type")
 	ErrChannelKeyCollision  = errors.New("channel key collision")
+	ErrDuplicateMessage     = errors.New("duplicate @Message with different payload")
 )
 
 type ParseError struct {

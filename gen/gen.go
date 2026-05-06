@@ -66,7 +66,7 @@ func (g *Gen) Build(cfg *Config) error {
 	for _, outType := range outputTypes {
 		writer, ok := g.writers[outType]
 		if !ok {
-			continue
+			return fmt.Errorf("unknown output type %q (supported: json, yaml, go)", outType)
 		}
 		if err := writer(cfg, doc); err != nil {
 			return fmt.Errorf("writing %s: %w", outType, err)

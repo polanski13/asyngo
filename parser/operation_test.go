@@ -769,6 +769,95 @@ func Handler() {}
 	}
 }
 
+func TestParseChannelMergeWsBindingFromSecondHandler(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.1.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /events
+// @Operation receive
+// @OperationID recvA
+// @Message a string
+func A() {}
+
+// @Channel /events
+// @WsBinding.Method GET
+// @ChannelServer staging
+// @Operation send
+// @OperationID sendB
+// @Message b string
+func B() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	doc, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	ch := doc.Channels["events"]
+	if ch.Bindings == nil || ch.Bindings.WS == nil {
+		t.Fatal("expected WsBinding from second handler to be merged")
+	}
+	if ch.Bindings.WS.Method != "GET" {
+		t.Errorf("merged binding method = %q", ch.Bindings.WS.Method)
+	}
+	if len(ch.Servers) != 1 || ch.Servers[0].Ref != "#/servers/staging" {
+		t.Errorf("expected staging server merged, got %+v", ch.Servers)
+	}
+}
+
+func TestParseChannelWsBindingConflictWarns(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.1.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /events
+// @WsBinding.Method GET
+// @Operation receive
+// @OperationID recvA
+// @Message a string
+func A() {}
+
+// @Channel /events
+// @WsBinding.Method POST
+// @Operation send
+// @OperationID sendB
+// @Message b string
+func B() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	_, err := p.Parse()
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	found := false
+	for _, w := range p.Warnings() {
+		if strings.Contains(w, "@WsBinding from a later handler ignored") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about ignored WsBinding, got %v", p.Warnings())
+	}
+}
+
 func TestParseChannelKeyCollision(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main

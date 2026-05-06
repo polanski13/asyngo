@@ -53,8 +53,8 @@ func TestWriteJSON(t *testing.T) {
 		t.Fatalf("unmarshal output: %v", err)
 	}
 
-	if parsed.AsyncAPI != "3.0.0" {
-		t.Errorf("asyncapi = %q, want 3.0.0", parsed.AsyncAPI)
+	if parsed.AsyncAPI != "3.1.0" {
+		t.Errorf("asyncapi = %q, want 3.1.0", parsed.AsyncAPI)
 	}
 	if parsed.Info.Title != "Test API" {
 		t.Errorf("title = %q, want Test API", parsed.Info.Title)
@@ -296,7 +296,7 @@ func TestBuildWithTestdata(t *testing.T) {
 		t.Fatalf("invalid JSON output: %v", err)
 	}
 
-	if doc.AsyncAPI != "3.0.0" {
+	if doc.AsyncAPI != "3.1.0" {
 		t.Errorf("asyncapi = %q", doc.AsyncAPI)
 	}
 	if doc.Info.Title == "" {

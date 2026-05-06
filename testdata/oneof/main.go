@@ -1,6 +1,6 @@
 package oneof
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Market Events API
 // @Version 1.0.0
 // @Description Polymorphic event streaming via WebSocket

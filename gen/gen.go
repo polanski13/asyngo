@@ -60,8 +60,10 @@ func (g *Gen) Build(cfg *Config) error {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 
-	for _, outType := range cfg.OutputTypes {
-		writer, ok := g.writers[strings.ToLower(strings.TrimSpace(outType))]
+	outputTypes := normalizeOutputTypes(cfg.OutputTypes)
+
+	for _, outType := range outputTypes {
+		writer, ok := g.writers[outType]
 		if !ok {
 			continue
 		}
@@ -71,4 +73,29 @@ func (g *Gen) Build(cfg *Config) error {
 	}
 
 	return nil
+}
+
+func normalizeOutputTypes(types []string) []string {
+	seen := make(map[string]bool, len(types))
+	out := make([]string, 0, len(types))
+	hasGo := false
+	for _, t := range types {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		if t == "go" {
+			hasGo = true
+			continue
+		}
+		out = append(out, t)
+	}
+	if hasGo && !seen["json"] {
+		out = append(out, "json")
+	}
+	if hasGo {
+		out = append(out, "go")
+	}
+	return out
 }

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/polanski13/asyngo/spec"
 )
@@ -55,7 +56,7 @@ func (fp *fieldProcessor) processField(
 func fieldJSONName(field *ast.Field, tag reflect.StructTag) string {
 	jsonTag := tag.Get("json")
 	if jsonTag == "" {
-		if len(field.Names) > 0 {
+		if len(field.Names) > 0 && isExportedName(field.Names[0].Name) {
 			return field.Names[0].Name
 		}
 		return ""
@@ -63,9 +64,20 @@ func fieldJSONName(field *ast.Field, tag reflect.StructTag) string {
 	parts := strings.Split(jsonTag, ",")
 	name := parts[0]
 	if name == "" && len(field.Names) > 0 {
+		if !isExportedName(field.Names[0].Name) {
+			return ""
+		}
 		return field.Names[0].Name
 	}
 	return name
+}
+
+func isExportedName(name string) bool {
+	if name == "" {
+		return false
+	}
+	r := []rune(name)[0]
+	return unicode.IsUpper(r)
 }
 
 func extractStructTag(field *ast.Field) reflect.StructTag {

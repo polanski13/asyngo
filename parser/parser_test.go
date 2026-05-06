@@ -25,8 +25,8 @@ func TestParseBasicTestdata(t *testing.T) {
 		t.Fatalf("Parse() error: %v", err)
 	}
 
-	if doc.AsyncAPI != "3.0.0" {
-		t.Errorf("AsyncAPI = %q, want %q", doc.AsyncAPI, "3.0.0")
+	if doc.AsyncAPI != "3.1.0" {
+		t.Errorf("AsyncAPI = %q, want %q", doc.AsyncAPI, "3.1.0")
 	}
 	if doc.Info.Title != "Trading Platform WebSocket API" {
 		t.Errorf("Title = %q, want %q", doc.Info.Title, "Trading Platform WebSocket API")
@@ -319,7 +319,7 @@ func TestParseOneOfTestdata(t *testing.T) {
 		t.Fatalf("Parse() error: %v", err)
 	}
 
-	if doc.AsyncAPI != "3.0.0" {
+	if doc.AsyncAPI != "3.1.0" {
 		t.Errorf("AsyncAPI = %q", doc.AsyncAPI)
 	}
 	if doc.Info.Title != "Market Events API" {
@@ -361,8 +361,8 @@ func TestParseOneOfTestdata(t *testing.T) {
 	if len(msg.Payload.Schema.OneOf) != 3 {
 		t.Fatalf("oneOf count = %d, want 3", len(msg.Payload.Schema.OneOf))
 	}
-	if msg.Payload.Schema.Discriminator != "eventType" {
-		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator == nil || msg.Payload.Schema.Discriminator.PropertyName != "eventType" {
+		t.Errorf("discriminator = %+v, want propertyName=eventType", msg.Payload.Schema.Discriminator)
 	}
 
 	expectedRefs := []string{

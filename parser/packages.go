@@ -15,16 +15,18 @@ import (
 type packagesDefinitions struct {
 	fset     *token.FileSet
 	files    map[string]*ast.File
+	fileDirs map[*ast.File]string
 	packages map[string]*ast.Package
-	types    map[string]*schema.TypeDef
+	types    map[string]map[string]*schema.TypeDef
 }
 
 func newPackagesDefinitions() *packagesDefinitions {
 	return &packagesDefinitions{
 		fset:     token.NewFileSet(),
 		files:    make(map[string]*ast.File),
+		fileDirs: make(map[*ast.File]string),
 		packages: make(map[string]*ast.Package),
-		types:    make(map[string]*schema.TypeDef),
+		types:    make(map[string]map[string]*schema.TypeDef),
 	}
 }
 
@@ -75,6 +77,7 @@ func (pd *packagesDefinitions) parseFile(path string) error {
 		return fmt.Errorf("parsing %s: %w", path, err)
 	}
 	pd.files[path] = f
+	pd.fileDirs[f] = filepath.Dir(path)
 
 	pkgName := f.Name.Name
 	if _, ok := pd.packages[pkgName]; !ok {
@@ -89,8 +92,8 @@ func (pd *packagesDefinitions) parseFile(path string) error {
 }
 
 func (pd *packagesDefinitions) CatalogTypes() {
-	for _, f := range pd.files {
-		pkgName := f.Name.Name
+	for path, f := range pd.files {
+		dir := filepath.Dir(path)
 		for _, decl := range f.Decls {
 			genDecl, ok := decl.(*ast.GenDecl)
 			if !ok || genDecl.Tok != token.TYPE {
@@ -107,9 +110,12 @@ func (pd *packagesDefinitions) CatalogTypes() {
 				td := &schema.TypeDef{
 					File:     f,
 					TypeSpec: typeSpec,
-					PkgPath:  pkgName,
+					PkgPath:  dir,
 				}
-				pd.types[pkgName+"."+typeSpec.Name.Name] = td
+				if pd.types[dir] == nil {
+					pd.types[dir] = make(map[string]*schema.TypeDef)
+				}
+				pd.types[dir][typeSpec.Name.Name] = td
 			}
 		}
 	}
@@ -126,27 +132,50 @@ func (pd *packagesDefinitions) FindTypeSpec(typeName string, file *ast.File) (*s
 			realPkg = pkgAlias
 		}
 
-		pkgName := realPkg
+		pkgBase := realPkg
 		if idx := strings.LastIndex(realPkg, "/"); idx >= 0 {
-			pkgName = realPkg[idx+1:]
+			pkgBase = realPkg[idx+1:]
 		}
 
-		if td, ok := pd.types[pkgName+"."+name]; ok {
-			return td, nil
+		var matches []*schema.TypeDef
+		for dir, byName := range pd.types {
+			td, ok := byName[name]
+			if !ok {
+				continue
+			}
+			if filepath.Base(dir) != pkgBase && td.File.Name.Name != pkgBase {
+				continue
+			}
+			matches = append(matches, td)
+		}
+
+		if len(matches) == 1 {
+			return matches[0], nil
+		}
+		if len(matches) > 1 {
+			for _, td := range matches {
+				if strings.HasSuffix(filepath.ToSlash(td.PkgPath), realPkg) {
+					return td, nil
+				}
+			}
+			return matches[0], nil
 		}
 
 		return nil, fmt.Errorf("%w: %s (package %s)", schema.ErrUnresolvedType, typeName, realPkg)
 	}
 
 	if file != nil {
-		currentPkg := file.Name.Name
-		if td, ok := pd.types[currentPkg+"."+typeName]; ok {
-			return td, nil
+		if dir, ok := pd.fileDirs[file]; ok {
+			if byName, ok := pd.types[dir]; ok {
+				if td, ok := byName[typeName]; ok {
+					return td, nil
+				}
+			}
 		}
 	}
 
-	for _, td := range pd.types {
-		if td.TypeSpec.Name.Name == typeName {
+	for _, byName := range pd.types {
+		if td, ok := byName[typeName]; ok {
 			return td, nil
 		}
 	}

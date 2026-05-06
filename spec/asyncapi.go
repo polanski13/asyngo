@@ -13,7 +13,7 @@ type AsyncAPI struct {
 
 func NewAsyncAPI() *AsyncAPI {
 	return &AsyncAPI{
-		AsyncAPI:   "3.0.0",
+		AsyncAPI:   "3.1.0",
 		Servers:    make(map[string]Server),
 		Channels:   make(map[string]Channel),
 		Operations: make(map[string]Operation),

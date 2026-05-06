@@ -1,6 +1,6 @@
 package basic
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Trading Platform WebSocket API
 // @Version 1.0.0
 // @Description Real-time trading data streaming via WebSocket

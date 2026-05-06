@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"go/ast"
+	"sort"
 	"strings"
 
 	"github.com/polanski13/asyngo/spec"
@@ -63,7 +64,14 @@ func (b *operationBuilder) ensureWsBinding() *wsBinding {
 }
 
 func (p *Parser) parseHandlers() error {
-	for path, f := range p.packages.Files() {
+	files := p.packages.Files()
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		f := files[path]
 		for _, decl := range f.Decls {
 			funcDecl, ok := asFuncDecl(decl)
 			if !ok || funcDecl.Doc == nil {
@@ -216,14 +224,19 @@ func parseChannelParam(b *operationBuilder, ann *annotation) error {
 	}
 	name := ann.Args[0]
 	typeName := ann.Args[1]
+	requiredArg := strings.ToLower(ann.Args[2])
 
 	if _, known := mapSimpleType(typeName); !known {
 		b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: unknown type %q, defaulting to string", name, typeName))
 	}
 
-	param := spec.Parameter{
-		Location: "$message.payload#/" + name,
+	if requiredArg == "false" {
+		b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: AsyncAPI 3.x channel parameters are always required; required=false ignored", name))
+	} else if requiredArg != "true" {
+		b.Warnings = append(b.Warnings, fmt.Sprintf("@ChannelParam %s: required must be true or false, got %q", name, ann.Args[2]))
 	}
+
+	param := spec.Parameter{}
 
 	if len(ann.Args) >= 4 {
 		param.Description = ann.Args[3]
@@ -442,12 +455,15 @@ func (p *Parser) registerMessages(channelKey string, file *ast.File, b *operatio
 				file:     file,
 			})
 		}
+		payloadSchema := &spec.Schema{
+			OneOf: refs,
+		}
+		if msg.Discriminator != "" {
+			payloadSchema.Discriminator = &spec.Discriminator{PropertyName: msg.Discriminator}
+		}
 		p.spec.Components.Messages[msg.Name] = &spec.Message{
-			Name: msg.Name,
-			Payload: spec.NewInlineSchema(&spec.Schema{
-				OneOf:         refs,
-				Discriminator: msg.Discriminator,
-			}),
+			Name:    msg.Name,
+			Payload: spec.NewInlineSchema(payloadSchema),
 		}
 	}
 	return nil

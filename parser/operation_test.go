@@ -10,7 +10,7 @@ func TestParseDuplicateOperationID(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -45,7 +45,7 @@ func TestParseMissingChannel(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -73,7 +73,7 @@ func TestParseInvalidAction(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -102,7 +102,7 @@ func TestParseInvalidOperationNoAction(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -128,7 +128,7 @@ func TestParseInvalidMessageFormat(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -154,7 +154,7 @@ func TestParseChannelMerging(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -197,7 +197,7 @@ func TestParseSecurityAnnotation(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -232,7 +232,7 @@ func TestParseWsBindingHeader(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -271,7 +271,7 @@ func TestParseExcludeDirectory(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -305,7 +305,7 @@ func TestParseErrorContext(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -398,7 +398,7 @@ func Handler() {}
 			dir := setupTestProject(t, map[string]string{
 				"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -427,7 +427,7 @@ func TestMapSimpleTypeWarningNonStrict(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -470,7 +470,7 @@ func TestMapSimpleTypeStrictError(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -539,7 +539,7 @@ func TestParseMessageOneOf(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -588,8 +588,8 @@ func Handler() {}
 	if msg.Payload.Schema.OneOf[1].Ref != "#/components/schemas/OrderBookPayload" {
 		t.Errorf("oneOf[1] = %q", msg.Payload.Schema.OneOf[1].Ref)
 	}
-	if msg.Payload.Schema.Discriminator != "eventType" {
-		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator == nil || msg.Payload.Schema.Discriminator.PropertyName != "eventType" {
+		t.Errorf("discriminator = %+v, want propertyName=eventType", msg.Payload.Schema.Discriminator)
 	}
 
 	ch := doc.Channels["events"]
@@ -607,7 +607,7 @@ func TestParseMessageOneOfNoDiscriminator(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -639,8 +639,8 @@ func Handler() {}
 	}
 
 	msg := doc.Components.Messages["mixed"]
-	if msg.Payload.Schema.Discriminator != "" {
-		t.Errorf("discriminator = %q, want empty", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator != nil {
+		t.Errorf("discriminator = %+v, want nil", msg.Payload.Schema.Discriminator)
 	}
 	if len(msg.Payload.Schema.OneOf) != 2 {
 		t.Errorf("oneOf count = %d, want 2", len(msg.Payload.Schema.OneOf))
@@ -651,7 +651,7 @@ func TestParseMessageOneOfMissingName(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -680,7 +680,7 @@ func TestParseMixedMessageAndOneOf(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}
@@ -730,7 +730,7 @@ func TestMapSimpleTypeHeaderWarning(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 func Init() {}

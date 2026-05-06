@@ -124,6 +124,15 @@ func (r *Resolver) resolvePointer(
 	}
 	if inner.Schema != nil {
 		inner.Schema.Nullable = true
+		return inner, nil
+	}
+	if inner.Ref != "" {
+		return spec.NewInlineSchema(&spec.Schema{
+			OneOf: []*spec.SchemaRef{
+				inner,
+				spec.NewInlineSchema(&spec.Schema{Type: "null"}),
+			},
+		}), nil
 	}
 	return inner, nil
 }
@@ -308,7 +317,12 @@ func (r *Resolver) handleEmbeddedField(
 		}
 	}
 
-	resolved, err := r.ResolveExpr(field.Type, file, components)
+	embeddedExpr := field.Type
+	if star, ok := embeddedExpr.(*ast.StarExpr); ok {
+		embeddedExpr = star.X
+	}
+
+	resolved, err := r.ResolveExpr(embeddedExpr, file, components)
 	if err != nil {
 		return err
 	}

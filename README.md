@@ -1,6 +1,6 @@
 # asyngo
 
-Generate [AsyncAPI 3.0](https://www.asyncapi.com/) specifications from Go source code annotations. Like [swaggo/swag](https://github.com/swaggo/swag) but for WebSocket and event-driven APIs.
+Generate [AsyncAPI 3.1](https://www.asyncapi.com/) specifications from Go source code annotations. Like [swaggo/swag](https://github.com/swaggo/swag) but for WebSocket and event-driven APIs.
 
 ## Install
 
@@ -13,7 +13,7 @@ go install github.com/polanski13/asyngo/cmd/asyngo@latest
 1. Annotate your main function with general API info:
 
 ```go
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Trading Platform WebSocket API
 // @Version 1.0.0
 // @Description Real-time trading data streaming
@@ -112,7 +112,7 @@ err := asyngo.Generate(&asyngo.Config{
 
 | Annotation | Description |
 |---|---|
-| `@AsyncAPI` | AsyncAPI spec version (e.g. `3.0.0`) |
+| `@AsyncAPI` | AsyncAPI spec version (e.g. `3.1.0`) |
 | `@Title` | API title |
 | `@Version` | API version |
 | `@Description` | API description (supports continuation lines) |

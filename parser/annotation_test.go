@@ -62,10 +62,10 @@ func TestParseAnnotationLine(t *testing.T) {
 			wantRaw:  "market,realtime,v2",
 		},
 		{
-			input:    "@AsyncAPI 3.0.0",
+			input:    "@AsyncAPI 3.1.0",
 			wantName: "AsyncAPI",
-			wantArgs: []string{"3.0.0"},
-			wantRaw:  "3.0.0",
+			wantArgs: []string{"3.1.0"},
+			wantRaw:  "3.1.0",
 		},
 	}
 

@@ -43,7 +43,7 @@ func TestParseGeneralAPI_InvalidServer(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 // @Server production
@@ -91,7 +91,7 @@ func TestParseGeneralAPI_ExternalDocs(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test API
 // @Version 1.0.0
 // @ExternalDocs.Description API documentation
@@ -129,7 +129,7 @@ func TestParseGeneralAPI_ServerNoPathname(t *testing.T) {
 	dir := setupTestProject(t, map[string]string{
 		"main.go": `package main
 
-// @AsyncAPI 3.0.0
+// @AsyncAPI 3.1.0
 // @Title Test
 // @Version 1.0.0
 // @Server dev ws://localhost:8080 - "Development server"

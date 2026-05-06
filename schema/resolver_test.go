@@ -366,8 +366,15 @@ type TreeNode struct {
 	if childrenProp.Schema.Type != "array" {
 		t.Errorf("children.type = %q", childrenProp.Schema.Type)
 	}
-	if childrenProp.Schema.Items.Ref != "#/components/schemas/TreeNode" {
-		t.Errorf("children.items.$ref = %q", childrenProp.Schema.Items.Ref)
+	items := childrenProp.Schema.Items
+	if items.Schema == nil || len(items.Schema.OneOf) != 2 {
+		t.Fatalf("children.items: expected oneOf wrapper for *TreeNode, got %+v", items)
+	}
+	if items.Schema.OneOf[0].Ref != "#/components/schemas/TreeNode" {
+		t.Errorf("children.items.oneOf[0].$ref = %q", items.Schema.OneOf[0].Ref)
+	}
+	if items.Schema.OneOf[1].Schema == nil || items.Schema.OneOf[1].Schema.Type != "null" {
+		t.Errorf("children.items.oneOf[1] = %+v, want type=null", items.Schema.OneOf[1])
 	}
 }
 

@@ -101,7 +101,7 @@ func TestSchemaRefMarshalJSON_OneOfWithDiscriminator(t *testing.T) {
 				NewSchemaRef(ComponentSchemaRef("TickerPayload")),
 				NewSchemaRef(ComponentSchemaRef("OrderBookPayload")),
 			},
-			Discriminator: "eventType",
+			Discriminator: &Discriminator{PropertyName: "eventType"},
 		},
 	}
 	data, err := json.Marshal(sr)
@@ -127,8 +127,12 @@ func TestSchemaRefMarshalJSON_OneOfWithDiscriminator(t *testing.T) {
 	if ref1 != "#/components/schemas/OrderBookPayload" {
 		t.Errorf("oneOf[1].$ref = %v", ref1)
 	}
-	if m["discriminator"] != "eventType" {
-		t.Errorf("discriminator = %v, want eventType", m["discriminator"])
+	disc, ok := m["discriminator"].(map[string]any)
+	if !ok {
+		t.Fatalf("discriminator is not an object: %v", m["discriminator"])
+	}
+	if disc["propertyName"] != "eventType" {
+		t.Errorf("discriminator.propertyName = %v, want eventType", disc["propertyName"])
 	}
 }
 
@@ -163,7 +167,7 @@ func TestSchemaRefMarshalJSON_OneOfWithoutDiscriminator(t *testing.T) {
 
 func TestNewAsyncAPI(t *testing.T) {
 	doc := NewAsyncAPI()
-	if doc.AsyncAPI != "3.0.0" {
+	if doc.AsyncAPI != "3.1.0" {
 		t.Errorf("AsyncAPI = %q", doc.AsyncAPI)
 	}
 	if doc.Servers == nil {

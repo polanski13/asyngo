@@ -122,19 +122,26 @@ func (r *Resolver) resolvePointer(
 	if err != nil {
 		return nil, err
 	}
-	if inner.Schema != nil {
-		inner.Schema.Nullable = true
-		return inner, nil
+	return wrapNullable(inner), nil
+}
+
+func wrapNullable(ref *spec.SchemaRef) *spec.SchemaRef {
+	if ref == nil {
+		return ref
 	}
-	if inner.Ref != "" {
-		return spec.NewInlineSchema(&spec.Schema{
-			OneOf: []*spec.SchemaRef{
-				inner,
-				spec.NewInlineSchema(&spec.Schema{Type: "null"}),
-			},
-		}), nil
+	if ref.Schema != nil && len(ref.Schema.OneOf) > 0 {
+		for _, opt := range ref.Schema.OneOf {
+			if opt != nil && opt.Schema != nil && opt.Schema.Type == "null" {
+				return ref
+			}
+		}
 	}
-	return inner, nil
+	return spec.NewInlineSchema(&spec.Schema{
+		OneOf: []*spec.SchemaRef{
+			ref,
+			spec.NewInlineSchema(&spec.Schema{Type: "null"}),
+		},
+	})
 }
 
 func (r *Resolver) resolveArray(

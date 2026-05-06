@@ -12,6 +12,7 @@ var (
 	ErrInvalidAction        = errors.New("invalid operation action")
 	ErrMissingChannel       = errors.New("missing @Channel annotation")
 	ErrUnknownType          = errors.New("unknown type")
+	ErrChannelKeyCollision  = errors.New("channel key collision")
 )
 
 type ParseError struct {

@@ -768,3 +768,38 @@ func Handler() {}
 		t.Errorf("expected warning mentioning weirdtype and @WsBinding.Header, got %v", warnings)
 	}
 }
+
+func TestParseChannelKeyCollision(t *testing.T) {
+	dir := setupTestProject(t, map[string]string{
+		"main.go": `package main
+
+// @AsyncAPI 3.1.0
+// @Title Test
+// @Version 1.0.0
+func Init() {}
+`,
+		"handler.go": `package main
+
+// @Channel /market/{pair}
+// @Operation receive
+// @OperationID recvA
+// @Message a string
+func A() {}
+
+// @Channel /marketPair
+// @Operation send
+// @OperationID sendB
+// @Message b string
+func B() {}
+`,
+	})
+
+	p := New(WithSearchDirs(dir), WithMainFile("main.go"))
+	_, err := p.Parse()
+	if err == nil {
+		t.Fatal("expected channel key collision error")
+	}
+	if !errors.Is(err, ErrChannelKeyCollision) {
+		t.Errorf("error = %v, want ErrChannelKeyCollision", err)
+	}
+}

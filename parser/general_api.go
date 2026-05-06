@@ -36,7 +36,22 @@ func (p *Parser) parseGeneralAPI() error {
 }
 
 func (p *Parser) applyGeneralAnnotation(ann *annotation) error {
-	switch strings.ToLower(ann.Name) {
+	name := strings.ToLower(ann.Name)
+
+	if sub, ok := strings.CutPrefix(name, "contact."); ok {
+		p.applyContactAnnotation(sub, ann.Raw)
+		return nil
+	}
+	if sub, ok := strings.CutPrefix(name, "license."); ok {
+		p.applyLicenseAnnotation(sub, ann.Raw)
+		return nil
+	}
+	if sub, ok := strings.CutPrefix(name, "externaldocs."); ok {
+		p.applyExternalDocsAnnotation(sub, ann.Raw)
+		return nil
+	}
+
+	switch name {
 	case "asyncapi":
 		if ann.Raw != "" {
 			p.spec.AsyncAPI = ann.Raw
@@ -53,31 +68,48 @@ func (p *Parser) applyGeneralAnnotation(ann *annotation) error {
 		p.spec.DefaultContentType = ann.Raw
 	case "id":
 		p.spec.ID = ann.Raw
-	case "contact.name":
-		p.ensureContact()
-		p.spec.Info.Contact.Name = ann.Raw
-	case "contact.url":
-		p.ensureContact()
-		p.spec.Info.Contact.URL = ann.Raw
-	case "contact.email":
-		p.ensureContact()
-		p.spec.Info.Contact.Email = ann.Raw
-	case "license.name":
-		p.ensureLicense()
-		p.spec.Info.License.Name = ann.Raw
-	case "license.url":
-		p.ensureLicense()
-		p.spec.Info.License.URL = ann.Raw
-	case "externaldocs.description":
-		p.ensureExternalDocs()
-		p.spec.Info.ExternalDocs.Description = ann.Raw
-	case "externaldocs.url":
-		p.ensureExternalDocs()
-		p.spec.Info.ExternalDocs.URL = ann.Raw
 	case "server":
 		return p.parseServerAnnotation(ann)
 	}
 	return nil
+}
+
+func (p *Parser) applyContactAnnotation(field, raw string) {
+	if p.spec.Info.Contact == nil {
+		p.spec.Info.Contact = &spec.Contact{}
+	}
+	switch field {
+	case "name":
+		p.spec.Info.Contact.Name = raw
+	case "url":
+		p.spec.Info.Contact.URL = raw
+	case "email":
+		p.spec.Info.Contact.Email = raw
+	}
+}
+
+func (p *Parser) applyLicenseAnnotation(field, raw string) {
+	if p.spec.Info.License == nil {
+		p.spec.Info.License = &spec.License{}
+	}
+	switch field {
+	case "name":
+		p.spec.Info.License.Name = raw
+	case "url":
+		p.spec.Info.License.URL = raw
+	}
+}
+
+func (p *Parser) applyExternalDocsAnnotation(field, raw string) {
+	if p.spec.Info.ExternalDocs == nil {
+		p.spec.Info.ExternalDocs = &spec.ExternalDocs{}
+	}
+	switch field {
+	case "description":
+		p.spec.Info.ExternalDocs.Description = raw
+	case "url":
+		p.spec.Info.ExternalDocs.URL = raw
+	}
 }
 
 func (p *Parser) parseServerAnnotation(ann *annotation) error {
@@ -121,20 +153,3 @@ func parseHostProtocol(hostWithProtocol string) (host, protocol string) {
 	return hostWithProtocol, "ws"
 }
 
-func (p *Parser) ensureContact() {
-	if p.spec.Info.Contact == nil {
-		p.spec.Info.Contact = &spec.Contact{}
-	}
-}
-
-func (p *Parser) ensureLicense() {
-	if p.spec.Info.License == nil {
-		p.spec.Info.License = &spec.License{}
-	}
-}
-
-func (p *Parser) ensureExternalDocs() {
-	if p.spec.Info.ExternalDocs == nil {
-		p.spec.Info.ExternalDocs = &spec.ExternalDocs{}
-	}
-}

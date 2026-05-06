@@ -329,6 +329,9 @@ func parseWsHeaderParam(b *operationBuilder, ann *annotation) error {
 
 func (p *Parser) registerChannel(key string, b *operationBuilder) error {
 	if existing, ok := p.spec.Channels[key]; ok {
+		if existing.Address != b.ChannelAddress {
+			return fmt.Errorf("%w: key %q maps to both %q and %q", ErrChannelKeyCollision, key, existing.Address, b.ChannelAddress)
+		}
 		for _, msg := range b.Messages {
 			if existing.Messages == nil {
 				existing.Messages = make(map[string]spec.MessageRef)

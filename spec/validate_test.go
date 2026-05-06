@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -259,5 +260,61 @@ func TestValidateOperationMissingAction(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected action error, got %v", errs)
+	}
+}
+
+func TestValidateOperationMessageRefBroken(t *testing.T) {
+	doc := NewAsyncAPI()
+	doc.Info.Title = "Test"
+	doc.Info.Version = "1.0.0"
+	doc.Channels["events"] = Channel{
+		Address:  "/events",
+		Messages: map[string]MessageRef{"good": {Ref: ComponentMessageRef("good")}},
+	}
+	doc.Components.Messages["good"] = &Message{Name: "good"}
+	doc.Operations["recv"] = Operation{
+		Action:  ActionReceive,
+		Channel: NewRef(ChannelRef("events")),
+		Messages: []Reference{
+			NewRef(ChannelMessageRef("events", "missing")),
+		},
+	}
+
+	errs := doc.Validate()
+	if len(errs) == 0 {
+		t.Fatal("expected error for missing message ref")
+	}
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e.Error(), `message "missing" not found`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected missing-message error, got %v", errs)
+	}
+}
+
+func TestValidateOperationReplyRefs(t *testing.T) {
+	doc := NewAsyncAPI()
+	doc.Info.Title = "Test"
+	doc.Info.Version = "1.0.0"
+	doc.Channels["main"] = Channel{
+		Address:  "/main",
+		Messages: map[string]MessageRef{"req": {Ref: ComponentMessageRef("req")}},
+	}
+	doc.Components.Messages["req"] = &Message{Name: "req"}
+	doc.Operations["op"] = Operation{
+		Action:  ActionSend,
+		Channel: NewRef(ChannelRef("main")),
+		Reply: &OperationReply{
+			Channel:  &Reference{Ref: ChannelRef("nonexistent")},
+			Messages: []Reference{NewRef(ChannelMessageRef("main", "ghost"))},
+		},
+	}
+
+	errs := doc.Validate()
+	if len(errs) < 2 {
+		t.Fatalf("expected at least 2 errors (reply channel + reply message), got %d: %v", len(errs), errs)
 	}
 }

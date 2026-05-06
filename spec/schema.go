@@ -25,7 +25,6 @@ type Schema struct {
 	Discriminator        *Discriminator        `json:"discriminator,omitempty" yaml:"discriminator,omitempty"`
 	AnyOf                []*SchemaRef          `json:"anyOf,omitempty" yaml:"anyOf,omitempty"`
 	Not                  *SchemaRef            `json:"not,omitempty" yaml:"not,omitempty"`
-	Nullable             bool                  `json:"nullable,omitempty" yaml:"nullable,omitempty"`
 	ReadOnly             bool                  `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
 	WriteOnly            bool                  `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
 	Deprecated           bool                  `json:"deprecated,omitempty" yaml:"deprecated,omitempty"`

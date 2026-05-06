@@ -38,12 +38,34 @@ func newAnnotationSet(comments *ast.CommentGroup) *annotationSet {
 				as.byName[key] = append(as.byName[key], ann)
 				current = ann
 			}
-		} else if current != nil && strings.TrimSpace(text) != "" {
-			current.Raw += " " + strings.TrimSpace(text)
+		} else if current != nil {
+			trimmed := strings.TrimSpace(text)
+			if trimmed == "" || isDirectiveComment(trimmed) {
+				current = nil
+				continue
+			}
+			current.Raw += " " + trimmed
 		}
 	}
 
 	return as
+}
+
+func isDirectiveComment(s string) bool {
+	if strings.HasPrefix(s, "go:") || strings.HasPrefix(s, "+build") {
+		return true
+	}
+	if strings.HasPrefix(s, "nolint") {
+		rest := s[len("nolint"):]
+		if rest == "" {
+			return true
+		}
+		switch rest[0] {
+		case ':', ' ', '\t':
+			return true
+		}
+	}
+	return false
 }
 
 func parseAnnotationLine(line string) *annotation {
@@ -84,6 +106,14 @@ func tokenizeArgs(s string) []string {
 
 	for i := 0; i < len(s); i++ {
 		ch := s[i]
+		if inQuote && ch == '\\' && i+1 < len(s) {
+			next := s[i+1]
+			if next == '"' || next == '\\' {
+				current.WriteByte(next)
+				i++
+				continue
+			}
+		}
 		switch {
 		case ch == '"' && !inParen:
 			if inQuote {

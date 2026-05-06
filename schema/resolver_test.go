@@ -983,3 +983,102 @@ type B struct {
 		t.Errorf("B.s ref = %q", bSchema.Properties["s"].Ref)
 	}
 }
+
+func assertNullableUnion(t *testing.T, prop *spec.SchemaRef, expectInner func(*testing.T, *spec.SchemaRef)) {
+	t.Helper()
+	if prop == nil || prop.Schema == nil {
+		t.Fatalf("expected inline schema with oneOf, got %+v", prop)
+	}
+	if len(prop.Schema.OneOf) != 2 {
+		t.Fatalf("expected oneOf of length 2, got %d", len(prop.Schema.OneOf))
+	}
+	expectInner(t, prop.Schema.OneOf[0])
+	null := prop.Schema.OneOf[1]
+	if null == nil || null.Schema == nil || null.Schema.Type != "null" {
+		t.Fatalf("expected second oneOf entry to be {type:null}, got %+v", null)
+	}
+}
+
+func TestResolvePointerPrimitive(t *testing.T) {
+	src := `package test
+type Wrapper struct {
+	Name *string ` + "`json:\"name\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Wrapper", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["Wrapper"].Properties["name"]
+	assertNullableUnion(t, prop, func(t *testing.T, inner *spec.SchemaRef) {
+		t.Helper()
+		if inner.Schema == nil || inner.Schema.Type != "string" {
+			t.Errorf("expected first oneOf to be {type:string}, got %+v", inner)
+		}
+	})
+}
+
+func TestResolvePointerNamedStruct(t *testing.T) {
+	src := `package test
+type Inner struct {
+	X int ` + "`json:\"x\"`" + `
+}
+type Outer struct {
+	Ptr *Inner ` + "`json:\"ptr\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Outer", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["Outer"].Properties["ptr"]
+	assertNullableUnion(t, prop, func(t *testing.T, inner *spec.SchemaRef) {
+		t.Helper()
+		if inner.Ref != "#/components/schemas/Inner" {
+			t.Errorf("expected first oneOf to be $ref Inner, got %+v", inner)
+		}
+	})
+}
+
+func TestResolveDoublePointerNotDoubleWrapped(t *testing.T) {
+	src := `package test
+type Inner struct {
+	X int ` + "`json:\"x\"`" + `
+}
+type Outer struct {
+	Ptr **Inner ` + "`json:\"ptr\"`" + `
+}
+`
+	lookup, file := newTestLookup(src)
+	r := NewResolver(lookup)
+	components := make(map[string]*spec.Schema)
+
+	_, err := r.ResolveTypeName("Outer", file, components)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	prop := components["Outer"].Properties["ptr"]
+	if prop == nil || prop.Schema == nil {
+		t.Fatalf("expected inline schema, got %+v", prop)
+	}
+	nullCount := 0
+	for _, opt := range prop.Schema.OneOf {
+		if opt != nil && opt.Schema != nil && opt.Schema.Type == "null" {
+			nullCount++
+		}
+	}
+	if nullCount != 1 {
+		t.Errorf("expected exactly one null branch in oneOf, got %d (schema=%+v)", nullCount, prop.Schema)
+	}
+}

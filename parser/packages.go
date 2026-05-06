@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/polanski13/asyngo/schema"
@@ -137,9 +138,10 @@ func (pd *packagesDefinitions) FindTypeSpec(typeName string, file *ast.File) (*s
 			pkgBase = realPkg[idx+1:]
 		}
 
+		dirs := pd.sortedDirs()
 		var matches []*schema.TypeDef
-		for dir, byName := range pd.types {
-			td, ok := byName[name]
+		for _, dir := range dirs {
+			td, ok := pd.types[dir][name]
 			if !ok {
 				continue
 			}
@@ -174,13 +176,22 @@ func (pd *packagesDefinitions) FindTypeSpec(typeName string, file *ast.File) (*s
 		}
 	}
 
-	for _, byName := range pd.types {
-		if td, ok := byName[typeName]; ok {
+	for _, dir := range pd.sortedDirs() {
+		if td, ok := pd.types[dir][typeName]; ok {
 			return td, nil
 		}
 	}
 
 	return nil, fmt.Errorf("%w: %s", schema.ErrUnresolvedType, typeName)
+}
+
+func (pd *packagesDefinitions) sortedDirs() []string {
+	dirs := make([]string, 0, len(pd.types))
+	for dir := range pd.types {
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+	return dirs
 }
 
 func resolveImportAlias(file *ast.File, alias string) string {

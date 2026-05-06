@@ -47,6 +47,24 @@ func (doc *AsyncAPI) Validate() []error {
 				errs = append(errs, fmt.Errorf("operation %q: channel ref %q not found", name, op.Channel.Ref))
 			}
 		}
+		for i, msgRef := range op.Messages {
+			if err := doc.validateChannelMessageRef(msgRef.Ref); err != nil {
+				errs = append(errs, fmt.Errorf("operation %q messages[%d]: %w", name, i, err))
+			}
+		}
+		if op.Reply != nil {
+			if op.Reply.Channel != nil && op.Reply.Channel.Ref != "" {
+				replyChannelName := refTarget(op.Reply.Channel.Ref)
+				if _, ok := doc.Channels[replyChannelName]; !ok {
+					errs = append(errs, fmt.Errorf("operation %q reply channel ref %q not found", name, op.Reply.Channel.Ref))
+				}
+			}
+			for i, msgRef := range op.Reply.Messages {
+				if err := doc.validateChannelMessageRef(msgRef.Ref); err != nil {
+					errs = append(errs, fmt.Errorf("operation %q reply.messages[%d]: %w", name, i, err))
+				}
+			}
+		}
 	}
 
 	if doc.Components != nil {
@@ -89,6 +107,27 @@ func (doc *AsyncAPI) validateRef(ref string, componentType string) error {
 		if _, ok := doc.Components.Messages[name]; !ok {
 			return fmt.Errorf("$ref %q: message not found", ref)
 		}
+	}
+	return nil
+}
+
+func (doc *AsyncAPI) validateChannelMessageRef(ref string) error {
+	const prefix = "#/channels/"
+	if !strings.HasPrefix(ref, prefix) {
+		return nil
+	}
+	rest := strings.TrimPrefix(ref, prefix)
+	parts := strings.SplitN(rest, "/messages/", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("$ref %q: not a valid channel message reference", ref)
+	}
+	channelName, msgName := parts[0], parts[1]
+	ch, ok := doc.Channels[channelName]
+	if !ok {
+		return fmt.Errorf("$ref %q: channel %q not found", ref, channelName)
+	}
+	if _, ok := ch.Messages[msgName]; !ok {
+		return fmt.Errorf("$ref %q: message %q not found in channel %q", ref, msgName, channelName)
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -47,12 +48,12 @@ func (g *Gen) Build(cfg *Config) error {
 	}
 
 	if errs := doc.ValidateBasic(); len(errs) > 0 {
-		return fmt.Errorf("validation: %w", errs[0])
+		return fmt.Errorf("validation: %w", errors.Join(errs...))
 	}
 
 	if cfg.Strict {
 		if errs := doc.Validate(); len(errs) > 0 {
-			return fmt.Errorf("validation: %w", errs[0])
+			return fmt.Errorf("validation: %w", errors.Join(errs...))
 		}
 	}
 

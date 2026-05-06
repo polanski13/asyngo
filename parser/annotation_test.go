@@ -139,6 +139,48 @@ func TestAnnotationSet(t *testing.T) {
 	}
 }
 
+func TestAnnotationContinuationStopsOnDirective(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// @Description Real description"},
+			{Text: "// nolint:godot"},
+			{Text: "// @Tags market"},
+		},
+	}
+
+	as := newAnnotationSet(comments)
+	desc := as.GetOne("Description")
+	if desc == nil {
+		t.Fatal("Description is nil")
+	}
+	if desc.Raw != "Real description" {
+		t.Errorf("Description.Raw = %q, want %q", desc.Raw, "Real description")
+	}
+	tags := as.GetOne("Tags")
+	if tags == nil || tags.Raw != "market" {
+		t.Errorf("Tags = %+v", tags)
+	}
+}
+
+func TestAnnotationContinuationKeepsTODO(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// @Description Endpoint description"},
+			{Text: "// TODO: revise after launch"},
+		},
+	}
+
+	as := newAnnotationSet(comments)
+	desc := as.GetOne("Description")
+	if desc == nil {
+		t.Fatal("Description is nil")
+	}
+	want := "Endpoint description TODO: revise after launch"
+	if desc.Raw != want {
+		t.Errorf("Description.Raw = %q, want %q", desc.Raw, want)
+	}
+}
+
 func TestAnnotationSetContinuation(t *testing.T) {
 	comments := &ast.CommentGroup{
 		List: []*ast.Comment{
@@ -180,6 +222,8 @@ func TestTokenizeArgs(t *testing.T) {
 		{`"enum(x)"`, []string{"enum(x)"}},
 		{"  a  b  ", []string{"a", "b"}},
 		{"\ta\tb", []string{"a", "b"}},
+		{`"escaped \"quote\" inside"`, []string{`escaped "quote" inside`}},
+		{`"backslash \\ literal"`, []string{`backslash \ literal`}},
 	}
 
 	for _, tt := range tests {

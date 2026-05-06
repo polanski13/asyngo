@@ -22,18 +22,13 @@ type Schema struct {
 	UniqueItems          bool                  `json:"uniqueItems,omitempty" yaml:"uniqueItems,omitempty"`
 	AllOf                []*SchemaRef          `json:"allOf,omitempty" yaml:"allOf,omitempty"`
 	OneOf                []*SchemaRef          `json:"oneOf,omitempty" yaml:"oneOf,omitempty"`
-	Discriminator        *Discriminator        `json:"discriminator,omitempty" yaml:"discriminator,omitempty"`
+	Discriminator        string                `json:"discriminator,omitempty" yaml:"discriminator,omitempty"`
 	AnyOf                []*SchemaRef          `json:"anyOf,omitempty" yaml:"anyOf,omitempty"`
 	Not                  *SchemaRef            `json:"not,omitempty" yaml:"not,omitempty"`
 	ReadOnly             bool                  `json:"readOnly,omitempty" yaml:"readOnly,omitempty"`
 	WriteOnly            bool                  `json:"writeOnly,omitempty" yaml:"writeOnly,omitempty"`
 	Deprecated           bool                  `json:"deprecated,omitempty" yaml:"deprecated,omitempty"`
 	AdditionalProperties *SchemaRef            `json:"additionalProperties,omitempty" yaml:"additionalProperties,omitempty"`
-}
-
-type Discriminator struct {
-	PropertyName string            `json:"propertyName" yaml:"propertyName"`
-	Mapping      map[string]string `json:"mapping,omitempty" yaml:"mapping,omitempty"`
 }
 
 type SchemaRef struct {

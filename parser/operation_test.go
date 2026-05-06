@@ -588,8 +588,8 @@ func Handler() {}
 	if msg.Payload.Schema.OneOf[1].Ref != "#/components/schemas/OrderBookPayload" {
 		t.Errorf("oneOf[1] = %q", msg.Payload.Schema.OneOf[1].Ref)
 	}
-	if msg.Payload.Schema.Discriminator == nil || msg.Payload.Schema.Discriminator.PropertyName != "eventType" {
-		t.Errorf("discriminator = %+v, want propertyName=eventType", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator != "eventType" {
+		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
 	}
 
 	ch := doc.Channels["events"]
@@ -639,8 +639,8 @@ func Handler() {}
 	}
 
 	msg := doc.Components.Messages["mixed"]
-	if msg.Payload.Schema.Discriminator != nil {
-		t.Errorf("discriminator = %+v, want nil", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator != "" {
+		t.Errorf("discriminator = %q, want empty", msg.Payload.Schema.Discriminator)
 	}
 	if len(msg.Payload.Schema.OneOf) != 2 {
 		t.Errorf("oneOf count = %d, want 2", len(msg.Payload.Schema.OneOf))

@@ -458,15 +458,12 @@ func (p *Parser) registerMessages(channelKey string, file *ast.File, b *operatio
 				file:     file,
 			})
 		}
-		payloadSchema := &spec.Schema{
-			OneOf: refs,
-		}
-		if msg.Discriminator != "" {
-			payloadSchema.Discriminator = &spec.Discriminator{PropertyName: msg.Discriminator}
-		}
 		p.spec.Components.Messages[msg.Name] = &spec.Message{
-			Name:    msg.Name,
-			Payload: spec.NewInlineSchema(payloadSchema),
+			Name: msg.Name,
+			Payload: spec.NewInlineSchema(&spec.Schema{
+				OneOf:         refs,
+				Discriminator: msg.Discriminator,
+			}),
 		}
 	}
 	return nil

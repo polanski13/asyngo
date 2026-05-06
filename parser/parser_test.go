@@ -361,8 +361,8 @@ func TestParseOneOfTestdata(t *testing.T) {
 	if len(msg.Payload.Schema.OneOf) != 3 {
 		t.Fatalf("oneOf count = %d, want 3", len(msg.Payload.Schema.OneOf))
 	}
-	if msg.Payload.Schema.Discriminator == nil || msg.Payload.Schema.Discriminator.PropertyName != "eventType" {
-		t.Errorf("discriminator = %+v, want propertyName=eventType", msg.Payload.Schema.Discriminator)
+	if msg.Payload.Schema.Discriminator != "eventType" {
+		t.Errorf("discriminator = %q, want eventType", msg.Payload.Schema.Discriminator)
 	}
 
 	expectedRefs := []string{

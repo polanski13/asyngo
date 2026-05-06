@@ -204,7 +204,7 @@ func TestValidateOneOfBrokenRef(t *testing.T) {
 				NewSchemaRef(ComponentSchemaRef("Missing")),
 				NewSchemaRef(ComponentSchemaRef("AlsoMissing")),
 			},
-			Discriminator: &Discriminator{PropertyName: "eventType"},
+			Discriminator: "eventType",
 		}),
 	}
 
@@ -232,7 +232,7 @@ func TestValidateOneOfValidRef(t *testing.T) {
 				NewSchemaRef(ComponentSchemaRef("TickerPayload")),
 				NewSchemaRef(ComponentSchemaRef("OrderBookPayload")),
 			},
-			Discriminator: &Discriminator{PropertyName: "eventType"},
+			Discriminator: "eventType",
 		}),
 	}
 

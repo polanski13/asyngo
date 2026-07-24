@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="420" viewBox="0 0 1200 420"
+     role="img" aria-labelledby="title desc">
+  <title id="title">asyngo — Go source to AsyncAPI 3.1</title>
+  <desc id="desc">A Go handler with AsyncAPI annotations flows through asyngo into a generated AsyncAPI 3.1 YAML channel definition.</desc>
+
+  <rect width="1200" height="420" rx="24" fill="#07111d"/>
+  <path d="M0 24C0 10.7 10.7 0 24 0h6v420h-6C10.7 420 0 409.3 0 396V24Z" fill="#00add8"/>
+
+  <g id="title-block" transform="translate(56 42)">
+    <text x="0" y="0"
+          fill="#8fa2bc"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18" letter-spacing="2">GO DEVELOPER TOOL · ASYNCAPI 3.1</text>
+    <text x="0" y="78"
+          fill="#f4f8ff"
+          font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+          font-size="76" font-weight="760" letter-spacing="-3">asyngo</text>
+    <text x="0" y="120"
+          fill="#c6d2e2"
+          font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+          font-size="24">Annotate Go. Generate the event contract.</text>
+  </g>
+
+  <g id="metadata" transform="translate(940 44)">
+    <rect x="0" y="-20" width="204" height="38" rx="19" fill="#101d2c" stroke="#284058"/>
+    <circle cx="24" cy="-1" r="5" fill="#8b7cff"/>
+    <text x="42" y="5"
+          fill="#b9c7d9"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="16">JSON · YAML · GO</text>
+  </g>
+
+  <g id="go-source">
+    <rect x="56" y="205" width="430" height="165" rx="16" fill="#0b1928" stroke="#284058" stroke-width="1.5"/>
+    <rect x="56" y="205" width="6" height="165" rx="3" fill="#00add8"/>
+    <text x="82" y="238"
+          fill="#8fa2bc"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18" letter-spacing="1.5">HANDLER.GO</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">
+      <text x="82" y="276" fill="#70839d">//</text>
+      <text x="108" y="276" fill="#58d5f5">@Channel</text>
+      <text x="222" y="276" fill="#e7edf7">/market/{pair}</text>
+      <text x="82" y="310" fill="#70839d">//</text>
+      <text x="108" y="310" fill="#58d5f5">@Operation</text>
+      <text x="244" y="310" fill="#c6bcff">receive</text>
+      <text x="82" y="344" fill="#70839d">//</text>
+      <text x="108" y="344" fill="#58d5f5">@Message</text>
+      <text x="222" y="344" fill="#e7edf7">ticker TickerPayload</text>
+    </g>
+  </g>
+
+  <g id="transformation">
+    <path d="M516 280H674" fill="none" stroke="#425b78" stroke-width="2"/>
+    <circle cx="540" cy="280" r="15" fill="#0f2031" stroke="#00add8" stroke-width="2"/>
+    <circle cx="595" cy="280" r="15" fill="#0f2031" stroke="#527ea2" stroke-width="2"/>
+    <circle cx="650" cy="280" r="15" fill="#171c3c" stroke="#8b7cff" stroke-width="2"/>
+    <text x="540" y="287" text-anchor="middle"
+          fill="#58d5f5"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18">@</text>
+    <text x="595" y="287" text-anchor="middle"
+          fill="#9fb2c9"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18">{}</text>
+    <path d="M668 271l12 9-12 9" fill="none" stroke="#8b7cff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="521" y="322" width="148" height="40" rx="20" fill="#101d2c" stroke="#284058"/>
+    <text x="595" y="348" text-anchor="middle"
+          fill="#d9e4f2"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18">asyngo init</text>
+  </g>
+
+  <g id="asyncapi-output">
+    <rect x="704" y="205" width="440" height="165" rx="16" fill="#0d1727" stroke="#3c396f" stroke-width="1.5"/>
+    <rect x="1138" y="205" width="6" height="165" rx="3" fill="#8b7cff"/>
+    <text x="730" y="238"
+          fill="#9d95ed"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          font-size="18" letter-spacing="1.5">ASYNCAPI.YAML</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="20">
+      <text x="730" y="272" fill="#63d8f6">asyncapi:</text>
+      <text x="846" y="272" fill="#c6bcff">3.1.0</text>
+      <text x="730" y="302" fill="#63d8f6">channels:</text>
+      <text x="754" y="332" fill="#e7edf7">marketPair:</text>
+      <text x="778" y="360" fill="#63d8f6">address:</text>
+      <text x="882" y="360" fill="#a9e4b5">/market/{pair}</text>
+    </g>
+  </g>
+</svg>

@@ -1,11 +1,5 @@
 <p align="center">
-  <img src="./.github/assets/asyngo-hero.svg" alt="asyngo turns Go source annotations into AsyncAPI 3.1 documents" width="100%">
-</p>
-
-<h1 align="center">asyngo</h1>
-
-<p align="center">
-  <strong>Generate AsyncAPI 3.1 contracts directly from annotated Go source.</strong>
+  <img src="./assets/readme/hero.svg" width="100%" alt="asyngo turns annotated Go handlers into AsyncAPI 3.1 contracts">
 </p>
 
 <p align="center">
@@ -18,73 +12,46 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#annotation-reference">Annotations</a> ·
-  <a href="#cli-reference">CLI</a> ·
+  <a href="#what-it-models">What it models</a> ·
+  <a href="#cli">CLI</a> ·
+  <a href="#reference">Reference</a> ·
   <a href="./CHANGELOG.md">Changelog</a>
 </p>
 
 ---
 
-`asyngo` keeps event-driven API documentation beside the Go code that implements it. Add familiar comment annotations to your API metadata, channels, operations, and payload structs, then generate validated AsyncAPI in YAML, JSON, or embeddable Go.
-
-If [`swaggo/swag`](https://github.com/swaggo/swag) is how you document REST endpoints, `asyngo` brings the same source-first workflow to WebSocket and asynchronous APIs.
-
-## Why asyngo
-
-- **One source of truth.** Channels, messages, bindings, and schemas live beside their Go handlers and types.
-- **AsyncAPI 3.1 output.** Generated documents use JSON Schema Draft 07 and are checked in CI with the official AsyncAPI CLI.
-- **Event-native modeling.** Describe send and receive operations, replies, WebSocket bindings, polymorphic messages, and security schemes.
-- **CI-friendly generation.** Emit deterministic JSON, YAML, or Go with strict validation when warnings should fail the build.
-
-### Where it fits
-
-| Tool | Direction | Best suited for |
-|---|---|---|
-| **asyngo** | Go annotations → AsyncAPI 3.1 | Keeping WebSocket and event contracts in Go source |
-| [`swaggo/swag`](https://github.com/swaggo/swag) | Go annotations → Swagger 2.0 | Documenting REST APIs from Go source |
-| [`asyncapi-codegen`](https://github.com/lerenn/asyncapi-codegen) | AsyncAPI document → Go | Generating broker and application code from an existing contract |
-
-Choose `asyngo` when the Go code is authoritative and the AsyncAPI document should be generated from it.
+`asyngo` generates AsyncAPI 3.1 documents from the Go comments and structs that implement your WebSocket or event-driven API. The code stays authoritative; JSON, YAML, and embeddable Go output are generated from it.
 
 ## Quick start
 
 Requires Go 1.25 or later.
 
-### 1. Install
+### Install
 
 ```bash
 go install github.com/polanski13/asyngo/cmd/asyngo@latest
 ```
 
-### 2. Add API metadata
+### Annotate
 
-Place the general annotations in your main API file:
+Add API metadata to your main file and channel metadata to a handler:
 
 ```go
 // @AsyncAPI 3.1.0
 // @Title Trading WebSocket API
 // @Version 1.0.0
-// @DefaultContentType application/json
 // @Server production wss://ws.example.com /v1 "Production"
 func main() {}
-```
 
-### 3. Describe a channel
-
-Annotate the handler that sends or receives messages:
-
-```go
 // @Channel /market/{pair}
 // @ChannelParam pair string true "Trading pair"
-// @WsBinding.Query token string true "Authentication token"
 // @Operation receive
 // @OperationID receiveMarketData
-// @Summary Receive live market updates
 // @Message tickerUpdate TickerPayload
 func HandleMarket() {}
 ```
 
-Define the message payload as a regular Go struct:
+Payload schemas come from ordinary Go structs and tags:
 
 ```go
 type TickerPayload struct {
@@ -95,13 +62,13 @@ type TickerPayload struct {
 }
 ```
 
-### 4. Generate
+### Generate
 
 ```bash
 asyngo init --dir . --output ./docs --strict
 ```
 
-By default, `asyngo` writes `asyncapi.json` and `asyncapi.yaml`:
+`asyngo` writes `asyncapi.json` and `asyncapi.yaml`:
 
 ```yaml
 asyncapi: 3.1.0
@@ -118,11 +85,28 @@ operations:
       $ref: '#/channels/marketPair'
 ```
 
-## Model event-driven APIs
+The repository CI generates contracts from the included basic and polymorphic examples, then validates both with the official AsyncAPI CLI.
+
+## Why asyngo
+
+- **Keep one source of truth.** Channels, messages, bindings, and schemas stay beside their Go handlers and types.
+- **Model event-driven behavior.** Describe send and receive operations, replies, WebSocket bindings, polymorphic messages, and security schemes.
+- **Generate AsyncAPI 3.1.** Output uses JSON Schema Draft 07 and can be emitted as JSON, YAML, or an embeddable Go package.
+- **Fail CI on contract problems.** Strict mode promotes parser warnings to errors and validates references before writing output.
+
+### Where it fits
+
+| Tool | Direction | Use it when |
+|---|---|---|
+| **asyngo** | Go annotations → AsyncAPI 3.1 | Go code is authoritative for an event-driven API |
+| [`swaggo/swag`](https://github.com/swaggo/swag) | Go annotations → Swagger 2.0 | Go code is authoritative for a REST API |
+| [`asyncapi-codegen`](https://github.com/lerenn/asyncapi-codegen) | AsyncAPI document → Go | An existing AsyncAPI document is authoritative |
+
+## What it models
 
 ### Polymorphic messages
 
-Use `@MessageOneOf` when a channel carries multiple payload shapes under one message:
+Use `@MessageOneOf` when a channel carries multiple payload shapes:
 
 ```go
 // @Channel /events/{symbol}
@@ -132,20 +116,9 @@ Use `@MessageOneOf` when a channel carries multiple payload shapes under one mes
 func HandleEvents() {}
 ```
 
-The resulting message payload contains `oneOf` references and an AsyncAPI discriminator:
-
-```yaml
-payload:
-  oneOf:
-    - $ref: '#/components/schemas/TickerPayload'
-    - $ref: '#/components/schemas/OrderBookPayload'
-    - $ref: '#/components/schemas/TradePayload'
-  discriminator: eventType
-```
+The generated payload contains `oneOf` references and a discriminator.
 
 ### Request and reply
-
-Mark an operation with `@Reply`, then identify its message and channel:
 
 ```go
 // @Channel /market/{pair}
@@ -174,9 +147,9 @@ func main() {}
 func HandleAccountEvents() {}
 ```
 
-Supported security scheme types include `http`, `apiKey`, `httpApiKey`, and `openIdConnect`.
+Supported scheme types include `http`, `apiKey`, `httpApiKey`, and `openIdConnect`.
 
-## CLI reference
+## CLI
 
 ```text
 asyngo init [flags]
@@ -190,7 +163,7 @@ Flags:
       --strict               Treat warnings as errors
 ```
 
-Specify multiple search or exclude directories as comma-separated values:
+Multiple directories and output types use comma-separated values:
 
 ```bash
 asyngo init \
@@ -200,7 +173,7 @@ asyngo init \
   --strict
 ```
 
-When `go` output is selected, `asyngo` also writes `asyncapi.json` so the generated package can embed it.
+Selecting `go` also writes `asyncapi.json` so the generated package can embed it.
 
 ## Programmatic usage
 
@@ -223,9 +196,10 @@ func Generate() error {
 }
 ```
 
-## Annotation reference
+## Reference
 
-### General API
+<details>
+<summary><strong>General API annotations</strong></summary>
 
 | Annotation | Description |
 |---|---|
@@ -233,7 +207,7 @@ func Generate() error {
 | `@Title` | API title |
 | `@Version` | API version |
 | `@Description` | API description; continuation lines are supported |
-| `@DefaultContentType` | Default content type, for example `application/json` |
+| `@DefaultContentType` | Default content type |
 | `@ID` | Unique document identifier |
 | `@TermsOfService` | Terms of service URL |
 | `@Contact.Name` | Contact name |
@@ -246,7 +220,10 @@ func Generate() error {
 | `@Server` | `name host pathname "description"` |
 | `@SecurityScheme` | `name type [type-specific arguments] ["description"]` |
 
-### Channels and operations
+</details>
+
+<details>
+<summary><strong>Channel and operation annotations</strong></summary>
 
 | Annotation | Description |
 |---|---|
@@ -269,7 +246,10 @@ func Generate() error {
 | `@ReplyChannel` | Reply channel address |
 | `@Security` | Security scheme reference |
 
-### Struct tags
+</details>
+
+<details>
+<summary><strong>Struct tags</strong></summary>
 
 | Tag | Description | Example |
 |---|---|---|
@@ -285,7 +265,10 @@ func Generate() error {
 | `default` | Default value | `default:"auto"` |
 | `asyncapiignore` | Exclude the field from its schema | `asyncapiignore:"true"` |
 
-## Type mapping
+</details>
+
+<details>
+<summary><strong>Go type mapping</strong></summary>
 
 | Go type | Generated JSON Schema |
 |---|---|
@@ -304,15 +287,17 @@ func Generate() error {
 
 Generic type instantiations are supported. Type parameters inside a generic struct resolve to an unconstrained schema.
 
-## Protocols
+</details>
+
+## Protocols and channel merging
+
+Supported server protocols:
 
 `wss://` · `ws://` · `https://` · `http://` · `mqtt://` · `amqp://` · `kafka://`
 
 When a server host has no protocol prefix, `ws` is used.
 
-## Channel merging
-
-Multiple handlers can annotate the same `@Channel` address. `asyngo` merges their messages, parameters, servers, and WebSocket bindings into one channel definition. Conflicting WebSocket bindings produce a warning, which becomes an error in strict mode.
+Multiple handlers may annotate the same `@Channel` address. `asyngo` merges their messages, parameters, servers, and WebSocket bindings into one channel definition. Conflicting WebSocket bindings produce a warning, which becomes an error in strict mode.
 
 ## Development
 
@@ -321,8 +306,6 @@ go test ./...
 go vet ./...
 go build ./...
 ```
-
-Generated fixtures are also validated in CI with [`@asyncapi/cli`](https://github.com/asyncapi/cli).
 
 ## License
 
